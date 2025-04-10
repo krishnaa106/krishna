@@ -1,0 +1,6 @@
+node_modules/
+auth_info/
+eplugins/
+a_test.js
+config.env
+package-lock.json
