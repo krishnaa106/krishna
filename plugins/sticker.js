@@ -2,11 +2,13 @@ const {
     csImg,
     toWebp,
     TMP_DIR,
+    dlMedia,
     cleanup,
     addExif,
     getExif,
     cropVid,
     dlStkZip,
+    toggleAtake,
     downloadUrl,
     extractStkZip,
     processZipStk,
@@ -230,6 +232,16 @@ module.exports = [
         }
     },
 
+    {
+        name: "atake",
+        desc: "Globally intercept stickers and send modified versions in the enabled chat",
+        utility: "sticker",
+        fromMe: true,
+        execute: async (client, msg, args) => {
+            await toggleAtake(client, msg, args);
+        }
+    },
+
 
     {
         name: "tosticker",
@@ -280,6 +292,45 @@ module.exports = [
     
             } catch (err) {
                 console.error("❌ Error in tosticker command:", err);
+            }
+        }
+    },
+
+    {
+        name: "savesticker",
+        scut: ".,svs",
+        desc: "Change the pack and author of a sticker",
+        utility: "sticker",
+        fromMe: false,
+    
+        execute: async (client, msg, args) => {
+            let mediaPath;
+    
+            try {
+                mediaPath = await dlMedia(msg, client, "path");
+                if (!mediaPath) {
+                    await client.sendMessage(msg.key.remoteJid, {
+                        text: "_Reply to a sticker!_"
+                    });
+                    return { isFallback: true };
+                }
+    
+                const fullArg = args.join(" ").trim();
+                const [pack, author] = fullArg.split(",").map(x => x?.trim() || undefined);
+    
+                const newStickerPath = await addExif(mediaPath, pack, author);
+    
+                const botJid = client.user?.id || client.user?.jid;
+                if (!botJid) throw new Error("Bot JID not found");
+    
+                await client.sendMessage(botJid, {
+                    sticker: fs.readFileSync(newStickerPath)
+                });
+    
+            } catch (err) {
+                console.error("❌ Error in .savesticker command:", err);
+            } finally {
+                if (mediaPath && fs.existsSync(mediaPath)) fs.unlinkSync(mediaPath);
             }
         }
     },
