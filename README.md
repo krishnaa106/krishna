@@ -15,12 +15,12 @@ npm install --legacy-peer-deps
 ```
 PREFIX=.
 STICKER_PACK=🔫,manji<3
-SUDO=null,994407542875
+SUDO=null,
 BOT_MODE=private
 RMBG_API_KEY=null
 PIN_API=http://localhost:3000/scrape
-GIT_REPO=https://github.com/manjisama1/LIXON
-GIT_BRANCH=https://github.com/manjisama1/LIXON/tree/main
+GIT_REPO=https://github.com/krishnaa106/krishna
+GIT_BRANCH=https://github.com/krishnaa106/krishna/tree/main
 ```
 
 * RUN THIS TO START THE BOT
