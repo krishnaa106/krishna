@@ -30,6 +30,7 @@ module.exports = [
     },
     {
         name: "vs",
+        scut: ">",
         desc: "Extract and send view-once media to self",
         utility: "tools",
         fromMe: true,
@@ -41,7 +42,7 @@ module.exports = [
         name: "forward",
         scut: "f,frwd",
         desc: "Silently forward the replied message to a JID",
-        utility: "chat",
+        utility: "tools",
         fromMe: true,
       
         execute: async (client, msg, args) => {
@@ -71,9 +72,9 @@ module.exports = [
     },
     {
         name: "save",
-        scut: "sv,s,/",
+        scut: "sv,/",
         desc: "Silently forward the replied message to bot itself",
-        utility: "chat",
+        utility: "tools",
         fromMe: true,
       
         execute: async (client, msg) => {

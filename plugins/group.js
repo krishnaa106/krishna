@@ -160,6 +160,7 @@ module.exports = [
     },
     {
         name: "joingc",
+        scut: "join",
         desc: "Joins a group by extracting a link from a replied message",
         utility: "group",
         fromMe: true,

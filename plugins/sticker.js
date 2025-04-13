@@ -7,7 +7,6 @@ const {
     addExif,
     getExif,
     cropVid,
-    dlStkZip,
     toggleAtake,
     downloadUrl,
     extractStkZip,
@@ -36,7 +35,7 @@ module.exports = [
             let mediaFile = null;
 
             try {
-                mediaFile = await downloadMedia(msg);
+                mediaFile = await dlMedia(msg, client, "path");
                 if (!mediaFile) {
                     return client.sendMessage(msg.key.remoteJid, {
                         text: "_Reply to an image or short video!_"
@@ -71,7 +70,7 @@ module.exports = [
             let tempFile;
 
             try {
-                tempFile = await downloadMedia(msg);
+                tempFile = await dlMedia(msg, client, "path");
                 if (!tempFile) {
                     await client.sendMessage(msg.key.remoteJid, {
                         text: "_Reply to a sticker!_"
@@ -109,7 +108,7 @@ module.exports = [
 
             try {
                 const chat = msg.key.remoteJid;
-                file = await downloadMedia(msg);
+                file = await dlMedia(msg, client, "path");
                 if (!file) return client.sendMessage(chat, { text: "_Reply to a media!_" });
 
                 const { ratio, placement } = getStickerSize();
@@ -171,7 +170,7 @@ module.exports = [
                     });
                 }
     
-                const stickerFile = await downloadMedia(msg, "sticker");
+                const stickerFile = await dlMedia(msg, "path");
     
                 const exif = await getExif(stickerFile);
                 fs.unlinkSync(stickerFile);
@@ -202,7 +201,7 @@ module.exports = [
         execute: async (client, msg) => {
             isZipStopped = false;
     
-            const zipPath = await dlStkZip(msg, "document");
+            const zipPath = await dlMedia(msg, "path");
             if (!zipPath) {
                 await client.sendMessage(msg.key.remoteJid, { text: "_Reply to a ZIP file!_" });
                 return { isFallback: true };
@@ -214,7 +213,6 @@ module.exports = [
         }
     },
     
-
     {
         name: "stopszip",
         desc: "Stop ongoing ZIP sticker processing",

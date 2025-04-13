@@ -154,6 +154,7 @@ module.exports = [
 
     {
         name: "pinstk",
+        scut: "pt",
         desc: "Search Pinterest and convert all image results to stickers",
         utility: "sticker",
         fromMe: false,

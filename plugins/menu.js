@@ -4,6 +4,8 @@ const os = require("os");
 const { execSync } = require("child_process");
 require("dotenv").config({ path: "./config.env" });
 
+const timeZone = process.env.TIMEZONE || "UTC";
+
 module.exports = {
     name: "menu",
     desc: "Show available commands",
@@ -55,8 +57,21 @@ module.exports = {
             const version = packageJson.version || "1.0.0";
 
             const userName = msg.pushName || "User";
-            const currentTime = new Date().toLocaleTimeString("en-US", { hour12: true });
-            const currentDate = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+            const currentTime = new Date().toLocaleTimeString("en-US", {
+                timeZone,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+            });
+            
+            const currentDate = new Date().toLocaleDateString("en-US", {
+                timeZone,
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+            });
 
             const uptimeSeconds = os.uptime();
             const uptime = new Date(uptimeSeconds * 1000).toISOString().substr(11, 8).replace(/:/g, "h ") + "s";
