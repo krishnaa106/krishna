@@ -66,15 +66,15 @@ module.exports = {
         await sock.sendMessage(groupJID, { text: `🎮 *ROUND ${this.gameData[groupJID].roundNumber} STARTS!*` });
     
         const roles = ["Officer", "Police", "Daket", "Chor"];
-        roles.sort(() => Math.random() - 0.5); // Shuffle roles fairly
-    
-        const shuffledPlayers = Object.keys(this.gameData[groupJID].participants);
-        shuffledPlayers.sort(() => Math.random() - 0.5); // Shuffle players as well
-    
+        const shuffledPlayers = Object.keys(this.gameData[groupJID].participants)
+            .sort(() => Math.random() - 0.5); // Shuffle players only
+        
         shuffledPlayers.forEach((jid, index) => {
-            this.gameData[groupJID].participants[jid].role = roles[index];
-            sock.sendMessage(jid, { text: `🔐 Your role: ${roles[index]}` });
+            const role = roles[index]; // Assign roles in fixed order to random players
+            this.gameData[groupJID].participants[jid].role = role;
+            sock.sendMessage(jid, { text: `🔐 Your role: ${role}` });
         });
+        
     
         this.startRound(sock, groupJID);
     },    
