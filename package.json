@@ -7,7 +7,7 @@
     "stop": "pm2 stop lixon"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.16",
+    "@whiskeysockets/baileys": "^6.7.17",
     "axios": "^1.6.0",
     "dotenv": "^16.4.7",
     "fluent-ffmpeg": "^2.1.3",
