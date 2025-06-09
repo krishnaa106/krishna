@@ -1,5 +1,7 @@
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
+const cheerio = require("cheerio");
 const mime = require("mime-types");
 const { modifyGroupRole, tagMembers, toggleGroupLock, modifyAllGroupRoles, blockUser, unblockUser, formatDateTime } = require("../lib");
 const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
@@ -180,6 +182,62 @@ module.exports = [
             }
         }
     },
+    {
+    name: "joinall",
+    desc: "Auto join all WhatsApp groups from a replied list with 5s delay",
+    utility: "group",
+    fromMe: true,
+
+    execute: async (client, msg) => {
+      const jid = msg.key.remoteJid;
+      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
+      if (!quoted) {
+        await client.sendMessage(jid, {
+          text: "_Reply to a message containing WhatsApp group links!_"
+        });
+        return;
+      }
+
+      // Extract all text from quoted message
+      const rawText =
+        quoted?.conversation ||
+        quoted?.extendedTextMessage?.text ||
+        quoted?.imageMessage?.caption ||
+        quoted?.videoMessage?.caption ||
+        "";
+
+      // Match all WhatsApp group invite links
+      const links = rawText.match(/https:\/\/chat\.whatsapp\.com\/[\w-]+/g);
+
+      if (!links || links.length === 0) {
+        await client.sendMessage(jid, {
+          text: "❌ No WhatsApp group links found in the replied message!"
+        });
+        return;
+      }
+
+      await client.sendMessage(jid, { text: `🔄 Starting to join ${links.length} groups...` });
+
+      for (let i = 0; i < links.length; i++) {
+        const link = links[i];
+        const code = link.split("/").pop();
+
+        try {
+          await client.groupAcceptInvite(code);
+          await client.sendMessage(jid, { text: `✅ Joined group ${i + 1}: ${link}` });
+        } catch (error) {
+          await client.sendMessage(jid, { text: `❌ Failed to join group ${i + 1}: ${link}` });
+        }
+
+        if (i < links.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 5000)); // 5 sec delay between joins
+        }
+      }
+
+      await client.sendMessage(jid, { text: "✅ Done joining all groups!" });
+    }
+    },
 
     {
         name: "close",
@@ -306,5 +364,114 @@ module.exports = [
                 await client.sendMessage(msg.key.remoteJid, { text: "_Failed to send @everyone tag._" });
             }
         }
-    }    
+    },
+    {
+    name: "walink",
+    desc: "Extract WhatsApp group links from a website and show valid group details",
+    utility: "tool",
+    fromMe: true,
+
+    execute: async (client, msg) => {
+        const jid = msg.key.remoteJid;
+
+        // Get command argument text or reply text (URL)
+        const textMsg = msg.message?.conversation 
+                    || msg.message?.extendedTextMessage?.text 
+                    || "";
+        const cmdArg = textMsg.split(" ").slice(1).join(" ").trim();
+
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const replyText = quoted?.conversation 
+                        || quoted?.extendedTextMessage?.text 
+                        || quoted?.imageMessage?.caption 
+                        || "";
+
+        const siteUrl = cmdArg || replyText;
+
+        if (!siteUrl || !/^https?:\/\/.+/i.test(siteUrl)) {
+        await client.sendMessage(jid, {
+            text: "_❌ Provide a valid website URL as an argument or reply to one!_"
+        }, { quoted: msg });
+        return;
+        }
+
+        try {
+        const response = await axios.get(siteUrl);
+        const $ = cheerio.load(response.data);
+        const allLinks = [];
+
+        // Extract all hrefs
+        $("a").each((_, el) => {
+            const link = $(el).attr("href");
+            if (link) allLinks.push(link);
+        });
+
+        // Extract direct WhatsApp group links from ?link= param or direct href
+        const whatsappLinks = allLinks
+            .map(link => {
+            const match = link.match(/link=(https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+)/);
+            return match ? match[1] : link;
+            })
+            .filter(link => link.startsWith("https://chat.whatsapp.com/"));
+
+        if (!whatsappLinks.length) {
+            await client.sendMessage(jid, {
+            text: "_❌ No WhatsApp group links found on that page._"
+            }, { quoted: msg });
+            return;
+        }
+
+        // Validate each WhatsApp group link and get group info
+        const validLinks = [];
+
+        for (const link of whatsappLinks) {
+            const code = link.split("/").pop();
+            try {
+            const metadata = await client.groupGetInviteInfo(code);
+            if (metadata?.id) {
+                const name = metadata.subject || "Unnamed Group";
+                const id = metadata.id || "N/A";
+                const creator = metadata.subjectOwner?.split("@")[0] || "Unknown";
+                const createdAt = metadata.creation
+                ? new Date(metadata.creation * 1000).toLocaleString()
+                : "Unknown";
+                const size = metadata.size || (metadata.participants?.length ?? "Unknown");
+                const joinApproval = metadata.joinApprovalMode ? "Yes" : "No";
+
+                validLinks.push(
+                `${name}\n` +
+                `ID: ${id}\n` +
+                `Creator: ${creator}\n` +
+                `Created At: ${createdAt}\n` +
+                `Members: ${size}\n` +
+                `Join Approval Needed: ${joinApproval}\n` +
+                `Link: ${link},`
+                );
+            }
+            } catch {
+            // skip invalid/expired links silently
+            }
+        }
+
+        if (!validLinks.length) {
+            await client.sendMessage(jid, {
+            text: "❌ No valid or joinable group links found!"
+            }, { quoted: msg });
+            return;
+        }
+
+        // Number and format output
+        const formatted = validLinks
+            .map((entry, i) => `${i + 1}. ${entry}`)
+            .join("\n\n");
+
+        await client.sendMessage(jid, { text: formatted }, { quoted: msg });
+
+        } catch {
+        await client.sendMessage(jid, {
+            text: "_❌ Couldn't fetch or parse the website. Make sure it's valid and online._"
+        }, { quoted: msg });
+        }
+    }
+    }
 ];

@@ -332,4 +332,41 @@ module.exports = [
             }
         }
     },
+    {
+    name: "ssr",
+    desc: "Convert all .webp images in /media/tmp to stickers and delete them after sending",
+    utility: "sticker",
+    fromMe: true,
+
+    execute: async (client, msg) => {
+        const chat = msg.key.remoteJid;
+        const folder = "./media/tmp/stickers";
+
+        try {
+            const files = fs.readdirSync(folder).filter(f => f.endsWith(".webp"));
+            if (!files.length) {
+                await client.sendMessage(chat, { text: "_No .webp files found in media/tmp_" });
+                return;
+            }
+
+            for (const file of files) {
+                const filePath = path.join(folder, file);
+
+                try {
+                    await addExif(filePath); // Edits the file in-place
+                    const buffer = fs.readFileSync(filePath);
+
+                    await client.sendMessage(chat, { sticker: buffer }, { quoted: msg });
+
+                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath); // Only delete the original
+                } catch (err) {
+                    console.error(`❌ Failed on: ${file}`, err);
+                }
+            }
+        } catch (err) {
+            console.error("❌ .ssr error:", err);
+            await client.sendMessage(chat, { text: "_Error while processing stickers._" });
+        }
+    }
+},
 ];
