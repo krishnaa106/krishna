@@ -1,3 +1,6 @@
+const fs = require("fs");
+const path = require("path");
+const { dlMedia } = require("../lib");
 const { execSync } = require("child_process");
 
 function getCurrentCommit() {
@@ -53,4 +56,39 @@ module.exports = [
             }
         },
     },
+  {
+    name: "in",
+    desc: "Install a plugin by replying to a .js file",
+    utility: "owner",
+    fromMe: true,
+
+    execute: async (client, msg, args) => {
+      const jid = msg.key.remoteJid;
+
+      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.documentMessage;
+      if (!quoted || !quoted.fileName || !quoted.mimetype.includes("javascript")) {
+        return client.sendMessage(jid, { text: "_Reply to a .js plugin file to install!_" });
+      }
+
+      const fileName = quoted.fileName.endsWith(".js") ? quoted.fileName : quoted.fileName + ".js";
+      const savePath = path.join(__dirname, "../eplugins", fileName);
+
+      try {
+        const buffer = await dlMedia(msg, client, "buffer");
+        if (!buffer) {
+          return client.sendMessage(jid, { text: "❌ Failed to download file." });
+        }
+
+        fs.writeFileSync(savePath, buffer);
+
+        return client.sendMessage(jid, {
+          text: `✅ _Plugin \`${fileName}\` installed in *eplugins/*_`,
+        });
+      } catch (err) {
+        return client.sendMessage(jid, { text: `❌ Failed to install plugin:\n${err.message}` });
+      }
+    },
+  },
 ];
+
+
