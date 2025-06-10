@@ -21,7 +21,7 @@ module.exports = [
         scut: "ta",
         desc: "Mention all members",
         utility: "group",
-        fromMe: true,
+        fromMe: false,
         execute: (client, msg) => tagMembers(client, msg, () => true)
     },
 
@@ -47,7 +47,7 @@ module.exports = [
         name: "tag",
         desc: "Send a hidden mention tag",
         utility: "group",
-        fromMe: true,
+        fromMe: false,
 
         execute: async (client, msg, args) => {
             try {
@@ -345,7 +345,7 @@ module.exports = [
         name: "everyone",
         desc: "Tag everyone with a single @everyone mention",
         utility: "group",
-        fromMe: true,
+        fromMe: false,
     
         execute: async (client, msg) => {
             try {
@@ -368,7 +368,7 @@ module.exports = [
     {
     name: "walink",
     desc: "Extract WhatsApp group links from a website and show valid group details",
-    utility: "tool",
+    utility: "tools",
     fromMe: true,
 
     execute: async (client, msg) => {

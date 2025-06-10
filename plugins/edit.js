@@ -8,7 +8,7 @@ module.exports = [
   {
     name: "page",
     desc: "Create custom PNG page with size or ratio and background color",
-    utility: "utility",
+    utility: "photoshop",
     fromMe: false,
 
     execute: async (client, msg, args) => {

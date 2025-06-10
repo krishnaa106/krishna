@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const { exec } = require("child_process");
 require("dotenv").config({ path: "./config.env" });
 const {cleanup} = require("../lib");
@@ -245,5 +246,50 @@ module.exports = [
                 }
             });
         },
-    }
+    },
+    {
+        name: "usage",
+        desc: "Get usage info of any command",
+        utility: "tools",
+        fromMe: false,
+
+        execute: async (client, msg, args) => {
+            const jid = msg.key.remoteJid;
+
+            if (!args.length) {
+            await client.sendMessage(jid, {
+                text: "*Usage:* `.usage <command>`\n*Example:* `.usage ssize`"
+            });
+            return;
+            }
+
+            const command = args[0].toLowerCase();
+        const usagePath = path.join(__dirname, "..", "lixon", "usage.json");
+
+            let usageData;
+
+            try {
+            const raw = fs.readFileSync(usagePath, "utf-8");
+            usageData = JSON.parse(raw);
+            } catch (e) {
+            await client.sendMessage(jid, { text: "❌ Failed to load usage data." });
+            return;
+            }
+
+            if (!usageData[command]) {
+            await client.sendMessage(jid, {
+                text: `❌ No usage info found for command: ${command}`
+            });
+            return;
+            }
+
+            const usage = usageData[command];
+            const text =
+            `📚 *Usage for* \`.${command}\`\n\n` +
+            `*Description:* ${usage.description}\n\n` +
+            usage.usage.map(line => `• ${line}`).join("\n");
+
+            await client.sendMessage(jid, { text });
+        }
+    },
 ];

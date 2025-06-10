@@ -25,37 +25,37 @@ function updateBot() {
 }
 
 module.exports = [
-    {
-        name: "update",
-        desc: "Check for updates or update bot from GitHub (master branch)",
-        fromMe: true,
-        execute: async (client, msg, args) => {
-            try {
-                if (args[0] === "now") {
-                    client.sendMessage(msg.key.remoteJid, { text: "🔄 Updating bot..." });
-                    const success = updateBot();
-                    if (!success) {
-                        return client.sendMessage(msg.key.remoteJid, { text: "❌ Update failed! Check logs for details." });
-                    }
-                    client.sendMessage(msg.key.remoteJid, { text: "✅ Update successful!\n> 🔄 Restarting bot..." });
-                    setTimeout(() => execSync("pm2 restart all"), 3000);
-                    return;
-                }
+  {
+      name: "update",
+      desc: "Check for updates or update bot from GitHub (master branch)",
+      fromMe: true,
+      execute: async (client, msg, args) => {
+          try {
+              if (args[0] === "now") {
+                  client.sendMessage(msg.key.remoteJid, { text: "🔄 Updating bot..." });
+                  const success = updateBot();
+                  if (!success) {
+                      return client.sendMessage(msg.key.remoteJid, { text: "❌ Update failed! Check logs for details." });
+                  }
+                  client.sendMessage(msg.key.remoteJid, { text: "✅ Update successful!\n> 🔄 Restarting bot..." });
+                  setTimeout(() => execSync("pm2 restart all"), 3000);
+                  return;
+              }
 
-                const currentCommit = getCurrentCommit();
-                const latestCommit = getLatestCommit();
+              const currentCommit = getCurrentCommit();
+              const latestCommit = getLatestCommit();
 
-                if (currentCommit === latestCommit) {
-                    return client.sendMessage(msg.key.remoteJid, { text: `✅ Bot is already up to date!\n> (Commit: \`${currentCommit}\`)` });
-                }
+              if (currentCommit === latestCommit) {
+                  return client.sendMessage(msg.key.remoteJid, { text: `✅ Bot is already up to date!\n> (Commit: \`${currentCommit}\`)` });
+              }
 
-                return client.sendMessage(msg.key.remoteJid, { text: `🚀 Update available!\n\n> Current: \`${currentCommit}\`\n> Latest: \`${latestCommit}\`\n\nUse \`.update now\` to update.` });
-            } catch (error) {
-                console.error("Error checking/updating bot:", error);
-                return client.sendMessage(msg.key.remoteJid, { text: "❌ Error checking/updating bot!" });
-            }
-        },
-    },
+              return client.sendMessage(msg.key.remoteJid, { text: `🚀 Update available!\n\n> Current: \`${currentCommit}\`\n> Latest: \`${latestCommit}\`\n\nUse \`.update now\` to update.` });
+          } catch (error) {
+              console.error("Error checking/updating bot:", error);
+              return client.sendMessage(msg.key.remoteJid, { text: "❌ Error checking/updating bot!" });
+          }
+      },
+  },
   {
     name: "in",
     desc: "Install a plugin by replying to a .js file",

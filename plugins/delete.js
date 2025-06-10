@@ -5,7 +5,7 @@ module.exports = [
         name: "dlt",
         desc: "Delete message for everyone",
         utility: "owner",
-        fromMe: false,
+        fromMe: true,
         async execute(client, msg) {
             const jid = msg.key.remoteJid;
             const quoted = msg.message?.extendedTextMessage?.contextInfo;
