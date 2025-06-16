@@ -2,9 +2,19 @@ const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
 require("dotenv").config({ path: "./config.env" });
-const {cleanup} = require("../lib");
+const {cleanup, commandExists} = require("../lib");
 
 const CONFIG_PATH = "./config.env";
+const permissionsPath = path.join(__dirname, "../db/permissions.json");
+
+function loadPermissions() {
+    if (!fs.existsSync(permissionsPath)) return { publicJids: [], commandAccess: {} };
+    return JSON.parse(fs.readFileSync(permissionsPath, "utf8"));
+}
+
+function savePermissions(data) {
+    fs.writeFileSync(permissionsPath, JSON.stringify(data, null, 2));
+}
 
 module.exports = [
     
@@ -290,6 +300,215 @@ module.exports = [
             usage.usage.map(line => `• ${line}`).join("\n");
 
             await client.sendMessage(jid, { text });
+        }
+    },
+        {
+        name: "allow",
+        desc: "Allow a JID or command to be publicly accessible",
+        utility: "owner",
+        fromMe: true,
+
+        async execute(sock, msg, args) {
+            const jid = msg.key.remoteJid;
+            const mentionedJid = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+            const replyJid = msg.message?.extendedTextMessage?.contextInfo?.participant;
+
+            const input = args[0]?.toLowerCase();
+            const isCommand = input && !input.endsWith("@s.whatsapp.net") && !input.endsWith("@g.us");
+
+            const perms = loadPermissions();
+
+            const targetCommand = isCommand ? input : null;
+            const targetJid =
+                mentionedJid ||
+                replyJid ||
+                (!isCommand && input) ||
+                (!input && jid);
+
+            // ✅ Check command existence with utility
+            if (targetCommand && !commandExists(targetCommand)) {
+                return await sock.sendMessage(jid, { text: `_Command "*${targetCommand}*" not found_.` });
+            }
+
+            // ✅ Case: .allow <cmd> @mention OR reply
+            if (targetCommand && (replyJid || mentionedJid)) {
+                if (!perms.commandAccess[targetJid]) perms.commandAccess[targetJid] = [];
+                if (!perms.commandAccess[targetJid].includes(targetCommand)) {
+                    perms.commandAccess[targetJid].push(targetCommand);
+                    savePermissions(perms);
+                    return await sock.sendMessage(jid, {
+                        text: `✅ Command "*${targetCommand}*" is now public for @${targetJid.split("@")[0]}`,
+                        mentions: [targetJid]
+                    });
+                } else {
+                    return await sock.sendMessage(jid, {
+                        text: `⚠️ Command "*${targetCommand}*" already allowed for @${targetJid.split("@")[0]}`,
+                        mentions: [targetJid]
+                    });
+                }
+            }
+
+            // ✅ Case: .allow <cmd> in group or DM
+            if (targetCommand && !replyJid && !mentionedJid) {
+                if (!perms.commandAccess[jid]) perms.commandAccess[jid] = [];
+                if (!perms.commandAccess[jid].includes(targetCommand)) {
+                    perms.commandAccess[jid].push(targetCommand);
+                    savePermissions(perms);
+                    return await sock.sendMessage(jid, {
+                        text: `✅ Command "*${targetCommand}*" is now public in this chat.`
+                    });
+                } else {
+                    return await sock.sendMessage(jid, {
+                        text: `⚠️ Command "*${targetCommand}*" is already allowed in this chat.`
+                    });
+                }
+            }
+
+            // ✅ Case: Allow user/group JID for all commands
+            if (!perms.publicJids.includes(targetJid)) {
+                perms.publicJids.push(targetJid);
+                savePermissions(perms);
+                return await sock.sendMessage(jid, {
+                    text: `✅ Allowed access for @${targetJid.split("@")[0]}`,
+                    mentions: [targetJid]
+                });
+            } else {
+                return await sock.sendMessage(jid, {
+                    text: `⚠️ @${targetJid.split("@")[0]} is already allowed.`,
+                    mentions: [targetJid]
+                });
+            }
+        }
+    },
+        {
+        name: "deny",
+        desc: "Deny a JID or command from public access",
+        utility: "owner",
+        fromMe: true,
+
+        async execute(sock, msg, args) {
+            const jid = msg.key.remoteJid;
+            const mentionedJid = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+            const replyJid = msg.message?.extendedTextMessage?.contextInfo?.participant;
+
+            const input = args[0]?.toLowerCase();
+            const isCommand = input && !input.endsWith("@s.whatsapp.net") && !input.endsWith("@g.us");
+
+            const perms = loadPermissions();
+
+            const targetCommand = isCommand ? input : null;
+            const targetJid =
+                mentionedJid ||
+                replyJid ||
+                (!isCommand && input) ||
+                (!input && jid);
+
+            // ✅ Check command existence
+            if (targetCommand && !commandExists(targetCommand)) {
+                return await sock.sendMessage(jid, { text: `_Command "*${targetCommand}*" not found._` });
+            }
+
+            // 🛑 Case: .deny <cmd> @mention or reply
+            if (targetCommand && (replyJid || mentionedJid)) {
+                if (perms.commandAccess[targetJid]?.includes(targetCommand)) {
+                    perms.commandAccess[targetJid] = perms.commandAccess[targetJid].filter(c => c !== targetCommand);
+                    if (perms.commandAccess[targetJid].length === 0) delete perms.commandAccess[targetJid];
+                    savePermissions(perms);
+                    return await sock.sendMessage(jid, {
+                        text: `❌ Command "*${targetCommand}*" is no longer public for @${targetJid.split("@")[0]}`,
+                        mentions: [targetJid]
+                    });
+                } else {
+                    return await sock.sendMessage(jid, {
+                        text: `⚠️ Command "*${targetCommand}*" was not public for @${targetJid.split("@")[0]}`,
+                        mentions: [targetJid]
+                    });
+                }
+            }
+
+            // 🛑 Case: .deny <cmd> in chat
+            if (targetCommand && !replyJid && !mentionedJid) {
+                if (perms.commandAccess[jid]?.includes(targetCommand)) {
+                    perms.commandAccess[jid] = perms.commandAccess[jid].filter(c => c !== targetCommand);
+                    if (perms.commandAccess[jid].length === 0) delete perms.commandAccess[jid];
+                    savePermissions(perms);
+                    return await sock.sendMessage(jid, {
+                        text: `❌ Command "*${targetCommand}*" is no longer public in this chat.`
+                    });
+                } else {
+                    return await sock.sendMessage(jid, {
+                        text: `⚠️ Command "*${targetCommand}*" was not public in this chat.`
+                    });
+                }
+            }
+
+            // 🛑 Case: deny full access for a JID (replied/mentioned/input)
+            if (perms.publicJids.includes(targetJid)) {
+                perms.publicJids = perms.publicJids.filter(j => j !== targetJid);
+                savePermissions(perms);
+                return await sock.sendMessage(jid, {
+                    text: `_Revoked public access for @${targetJid.split("@")[0]}_`,
+                    mentions: [targetJid]
+                });
+            } else {
+                return await sock.sendMessage(jid, {
+                    text: `⚠️ @${targetJid.split("@")[0]} doesn't have public access.`,
+                    mentions: [targetJid]
+                });
+            }
+        }
+    },
+    {
+        name: "allowlist",
+        desc: "List allowed users/groups/commands or clear them all",
+        utility: "owner",
+        fromMe: true,
+
+        async execute(sock, msg, args) {
+            const jid = msg.key.remoteJid;
+            const arg = args[0]?.toLowerCase();
+            const perms = loadPermissions();
+
+            // 🧼 Handle `.allowlist clear`
+            if (arg === "clear") {
+                savePermissions({ publicJids: [], commandAccess: {} });
+                return await sock.sendMessage(jid, {
+                    text: `_Allowlist cleared._`
+                });
+            }
+
+            // 📝 Default: Show allowlist
+            let text = `📝 *Allowlist Summary:*\n\n`;
+
+            // 👥 Public JIDs
+            if (perms.publicJids.length > 0) {
+                text += `👥 *Public JIDs*:\n`;
+                for (const j of perms.publicJids) {
+                    const isGroup = j.endsWith("@g.us");
+                    const tag = j.split("@")[0];
+                    text += `• ${isGroup ? "Group" : "User"}: @${tag}\n`;
+                }
+                text += `\n`;
+            } else {
+                text += `👥 *Public JIDs*: None\n\n`;
+            }
+
+            // 📦 Command Access
+            if (Object.keys(perms.commandAccess).length > 0) {
+                text += `📦 *Command Access*:\n`;
+                for (const [jidKey, cmds] of Object.entries(perms.commandAccess)) {
+                    const isGroup = jidKey.endsWith("@g.us");
+                    const tag = jidKey.split("@")[0];
+                    text += `• ${isGroup ? "Group" : "User"} @${tag}: ${cmds.join(", ")}\n`;
+                }
+            } else {
+                text += `📦 *Command Access*: None\n`;
+            }
+
+            return await sock.sendMessage(jid, {
+                text,
+                mentions: [...perms.publicJids, ...Object.keys(perms.commandAccess)]
+            });
         }
     },
 ];
