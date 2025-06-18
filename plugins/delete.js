@@ -1,4 +1,4 @@
-const { botNum, isSudo, isBotAdmin, getSender, delAdmin, delMe } = require("../lib");
+const { botJid, isSudo, isBotAdmin, getSender, delAdmin, delMe } = require("../lib");
 
 module.exports = [
     {
@@ -15,15 +15,15 @@ module.exports = [
             }
 
             const sender = getSender(msg);
-            const botJid = botNum(client);
+            const botsJid = botJid(client);
 
-            if (quoted.participant === botJid) {
+            if (quoted.participant === botsJid) {
                 await delMe(client, jid, quoted);
                 return { isFallback: false };
             }
 
             if (jid.endsWith("@g.us")) {
-                if (!isSudo(sender) && sender !== botJid) {
+                if (!isSudo(sender) && sender !== botsJid) {
                     await client.sendMessage(jid, { text: "_You don't have permission to delete messages!_" });
                     return { isFallback: true };
                 }

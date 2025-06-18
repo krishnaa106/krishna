@@ -239,6 +239,29 @@ module.exports = [
         }
     },
     {
+        name: "clear",
+        scut: "clc, clearchat",
+        desc: "Clears the chat where its being executed",
+        utility: "owner",
+        fromMe: true,
+
+        async execute(sock, msg) {
+        await sock.chatModify(
+            {
+            delete: true,
+            lastMessages: [
+                {
+                key: msg.key,
+                messageTimestamp: msg.messageTimestamp
+                }
+            ]
+            },
+            msg.key.remoteJid
+        );
+        await sock.sendMessage(msg.key.remoteJid, { text: "_cleared_" });
+        }
+    },
+    {
         name: "reboot",
         desc: "Reboot the bot",
         utility: "system",
@@ -302,7 +325,7 @@ module.exports = [
             await client.sendMessage(jid, { text });
         }
     },
-        {
+    {
         name: "allow",
         desc: "Allow a JID or command to be publicly accessible",
         utility: "owner",
@@ -447,7 +470,7 @@ module.exports = [
                 perms.publicJids = perms.publicJids.filter(j => j !== targetJid);
                 savePermissions(perms);
                 return await sock.sendMessage(jid, {
-                    text: `_Revoked public access for @${targetJid.split("@")[0]}_`,
+                    text: `Revoked public access for @${targetJid.split("@")[0]}`,
                     mentions: [targetJid]
                 });
             } else {
