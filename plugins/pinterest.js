@@ -9,12 +9,13 @@ const {
     toWebp,
     addExif,
     pinterest,
-    addFrame
+    addFrame,
+    reloadEnv,
 } = require("../lib");
 require("dotenv").config();
 
 let isPintStopped = false;
-let pinApi = process.env.PIN_API;
+
 
 module.exports = [
     {
@@ -27,6 +28,8 @@ module.exports = [
 
             
             try {
+                reloadEnv();
+                const pinApi = process.env.PIN_API;
                 if (!pinApi) {
                     await client.sendMessage(msg.key.remoteJid, { text: "Set *PIN_API* in your `config.env` file.\n> Use `.evar` or `.setvar`\n_*NOTE:* You can only use this if you have the api_" });
                     return { isFallback: true };
