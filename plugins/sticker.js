@@ -7,7 +7,6 @@ const {
     addExif,
     getExif,
     cropVid,
-    toggleAtake,
     downloadUrl,
     extractStkZip,
     processZipStk,
@@ -230,19 +229,21 @@ module.exports = [
         }
     },
 
-    {
-        name: "atake",
-        desc: "Globally intercept stickers and send modified versions in the enabled chat",
-        utility: "sticker",
-        fromMe: true,
-        execute: async (client, msg, args) => {
-            await toggleAtake(client, msg, args);
-        }
-    },
+    // {
+    //     name: "atake",
+    //     desc: "Globally intercept stickers and send modified versions in the enabled chat",
+    //     utility: "sticker",
+    //     fromMe: true,
+    //     execute: async (client, msg, args) => {
+    //         await toggleAtake(client, msg, args);
+    //     }
+    // },
 
 
+    
+
     {
-        name: "tosticker",
+        name: "linkstk",
         desc: "Download images from provided URLs and send them as stickers",
         utility: "sticker",
         fromMe: false,

@@ -1,10 +1,13 @@
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 const { randomUUID } = require("crypto");
 const { exec } = require("child_process");
 const { 
     downloadMedia,
     cleanup,
+    instaDl,
+    extractText,
     processImage,
     cropVid,
     getVideoDimensions,
@@ -166,6 +169,48 @@ module.exports = [
             }
 
             return true;
+        }
+    },
+
+    {
+        name: "insta",
+        desc: "Download Instagram videos",
+        utility: "downloader",
+        fromMe: false,
+
+        execute: async (sock, msg, args) => {
+        const input = args.join(" ").trim();
+        const text = input || extractText(msg);
+
+        if (!text || !text.includes("instagram.com")) {
+            return sock.sendMessage(msg.key.remoteJid, {
+            text: "_Send or reply to a valid Instagram link._"
+            }, { quoted: msg });
+        }
+
+        const videoLink = await instaDl(text);
+
+        if (!videoLink) {
+            return sock.sendMessage(msg.key.remoteJid, {
+            text: "_Couldn't fetch video link._"
+            }, { quoted: msg });
+        }
+
+        try {
+            const res = await axios.get(videoLink, { responseType: "arraybuffer" });
+            const buffer = Buffer.from(res.data);
+
+            await sock.sendMessage(msg.key.remoteJid, {
+            video: buffer,
+            mimetype: "video/mp4"
+            }, { quoted: msg });
+
+        } catch (e) {
+            console.error("❌ Buffer send error:", e.message);
+            await sock.sendMessage(msg.key.remoteJid, {
+            text: "_Failed to fetch or send the video._"
+            }, { quoted: msg });
+        }
         }
     },
 //BUFFER BASED CROP

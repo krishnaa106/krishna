@@ -3,7 +3,16 @@ const path = require("path");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const mime = require("mime-types");
-const { modifyGroupRole, tagMembers, toggleGroupLock, modifyAllGroupRoles, blockUser, unblockUser, formatDateTime } = require("../lib");
+const {
+    modifyGroupRole,
+    tagMembers,
+    toggleGroupLock,
+    modifyAllGroupRoles,
+    blockUser,
+    unblockUser,
+    formatDateTime,
+    isBotAdmin
+} = require("../lib");
 const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 
 async function downloadMedia(message, mediaType) {
@@ -237,6 +246,42 @@ module.exports = [
 
       await client.sendMessage(jid, { text: "✅ Done joining all groups!" });
     }
+    },
+
+        {
+        name: "invite",
+        scut: "inv",
+        desc: "Get group invite link if bot is admin",
+        utility: "group",
+        fromMe: false,
+
+        async execute(sock, msg) {
+            const chat = msg.key.remoteJid;
+
+            try {
+                const metadata = await sock.groupMetadata(chat);
+
+                if (!isBotAdmin(sock, metadata.participants)) {
+                    return sock.sendMessage(chat, {
+                        text: "I am not admin._"
+                    });
+                }
+
+                const code = await sock.groupInviteCode(chat);
+                const link = `https://chat.whatsapp.com/${code}`;
+
+                return sock.sendMessage(chat, {
+                    text: `${link}`,
+                    previewType: "link"
+                });
+
+            } catch (err) {
+                console.error("❌ .invite error:", err);
+                return sock.sendMessage(chat, {
+                    text: "_Couldn't fetch group invite link._"
+                });
+            }
+        }
     },
 
     {

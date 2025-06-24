@@ -1,3 +1,6 @@
+const activeChats = new Set();
+const MAX_REQUESTABLE = 15;
+
 const fs = require("fs");
 const { 
     getStickerSize,
@@ -15,6 +18,7 @@ const {
 require("dotenv").config();
 
 let isPintStopped = false;
+
 
 
 module.exports = [
@@ -185,80 +189,102 @@ module.exports = [
         }
     },
     {
-        name: "pinstk",
-        scut: "pt",
+        name: "pt",
         desc: "Search Pinterest and convert all image results to stickers",
         utility: "sticker",
         fromMe: false,
-    
-        async execute(sock, msg, args) {
-            const chat = msg.key.remoteJid;
-            const query = args.join(" ").trim();
-    
-            if (!query) {
-                return sock.sendMessage(chat, {
-                    text: "*Usage:* `.pinstk [search term]`\n> Example: `.pinstk gojo satoru`"
-                });
-            }
-    
-            try {
-                const imageUrls = await pinterest(query);
-                if (!imageUrls?.length) {
-                    return sock.sendMessage(chat, {
-                        text: "*ADD VALID COOKIE IN VAR*\n> Example:\n`.evar PINTEREST_COOKIE=<cookie>`\nOr use `.setvar`"
-                    });
-                }
-    
-                const { ratio, placement } = getStickerSize();
-                let successCount = 0;
-    
-                for (const url of imageUrls) {
-                    let tmpFiles = [];
-                    try {
-                        let file = await downloadUrl(url);
-                        tmpFiles.push(file);
-                        
-                        file = await csImg(file, ratio, placement);
-                        tmpFiles.push(file);
-                        
-                        const webpPath = await toWebp(file);
-                        tmpFiles.push(webpPath);
-                        
 
-                        const framedBuffer = await addFrame(webpPath);
-                        
-                        // ✅ Add exif directly from buffer, not from file path
-                        const finalPath = await addExif(framedBuffer);
-                        tmpFiles.push(finalPath); // optional, if addExif writes a file
-                        
-                        if (fs.existsSync(finalPath)) {
-                            const buffer = fs.readFileSync(finalPath);
-                            await sock.sendMessage(chat, { sticker: buffer });
-                            successCount++;
-                        }                        
-                    } catch (err) {
-                        console.warn("⚠️ Skipped image due to error:", err.message);
-                    } finally {
-                        for (const file of tmpFiles) {
-                            if (fs.existsSync(file)) fs.unlinkSync(file);
-                        }
-                        await new Promise((r) => setTimeout(r, 300));
-                    }
+        async execute(sock, msg, args) {
+        const chat = msg.key.remoteJid;
+
+        if (activeChats.has(chat)) {
+            return sock.sendMessage(chat, {
+            text: "_A command is already running wait._"
+            });
+        }
+
+        // Parse optional count
+        let count = 0;
+        if (/^\d+$/.test(args[0])) {
+            count = parseInt(args.shift());
+        }
+
+        const query = args.join(" ").trim();
+        if (!query) {
+            return sock.sendMessage(chat, {
+            text: "*Usage:*\n> `.pt [count] <search>`\n> Example: `.pt 6 gojo satoru`"
+            });
+        }
+
+        if (count > MAX_REQUESTABLE) {
+            await sock.sendMessage(chat, {
+            text: `_You can only request up to ${MAX_REQUESTABLE} stickers._\nGetting as many as I can\n(usually 17–21)...`
+            });
+            count = 0;
+        }
+
+        activeChats.add(chat);
+
+        try {
+            const imageUrls = await pinterest(query);
+            if (!imageUrls?.length) {
+            return sock.sendMessage(chat, {
+                text: "*ADD VALID COOKIE IN VAR*\n> Example:\n`.evar PINTEREST_COOKIE=<cookie>`\nOr use `.setvar`"
+            });
+            }
+
+            const targetCount = count || imageUrls.length;
+            const { ratio, placement } = getStickerSize();
+            let successCount = 0;
+
+            for (const url of imageUrls) {
+            if (count > 0 && successCount >= targetCount) break;
+
+            let tmpFiles = [];
+            try {
+                let file = await downloadUrl(url);
+                tmpFiles.push(file);
+
+                file = await csImg(file, ratio, placement);
+                tmpFiles.push(file);
+
+                const webpPath = await toWebp(file);
+                tmpFiles.push(webpPath);
+
+                const framedBuffer = await addFrame(webpPath);
+                const finalPath = await addExif(framedBuffer);
+                tmpFiles.push(finalPath);
+
+                if (fs.existsSync(finalPath)) {
+                const buffer = fs.readFileSync(finalPath);
+                await sock.sendMessage(chat, { sticker: buffer });
+                successCount++;
                 }
-    
-                if (!successCount) {
-                    await sock.sendMessage(chat, {
-                        text: "_❌ Failed to convert any images!_"
-                    });
-                }
-    
-                cleanup();
-    
             } catch (err) {
-                console.error("❌ .pinstk error:", err);
-                await sock.sendMessage(chat, {
-                    text: "⚠️ Something went wrong while processing Pinterest results."
-                });
+                console.warn("⚠️ Skipped image due to error:", err.message);
+            } finally {
+                for (const file of tmpFiles) {
+                if (fs.existsSync(file)) fs.unlinkSync(file);
+                }
+                await new Promise(r => setTimeout(r, 300));
+            }
+            }
+
+            if (!successCount) {
+            await sock.sendMessage(chat, {
+                text: "_❌ Failed to convert any images!_"
+            });
+            }
+
+            cleanup();
+
+        } catch (err) {
+            console.error("❌ .pt error:", err);
+            await sock.sendMessage(chat, {
+            text: "⚠️ Something went wrong while processing Pinterest results."
+            });
+        } finally {
+            activeChats.delete(chat);
             }
         }
     },
