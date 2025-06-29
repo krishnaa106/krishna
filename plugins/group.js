@@ -419,7 +419,6 @@ module.exports = [
     execute: async (client, msg) => {
         const jid = msg.key.remoteJid;
 
-        // Get command argument text or reply text (URL)
         const textMsg = msg.message?.conversation 
                     || msg.message?.extendedTextMessage?.text 
                     || "";
@@ -445,13 +444,11 @@ module.exports = [
         const $ = cheerio.load(response.data);
         const allLinks = [];
 
-        // Extract all hrefs
         $("a").each((_, el) => {
             const link = $(el).attr("href");
             if (link) allLinks.push(link);
         });
 
-        // Extract direct WhatsApp group links from ?link= param or direct href
         const whatsappLinks = allLinks
             .map(link => {
             const match = link.match(/link=(https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+)/);
@@ -466,7 +463,6 @@ module.exports = [
             return;
         }
 
-        // Validate each WhatsApp group link and get group info
         const validLinks = [];
 
         for (const link of whatsappLinks) {
@@ -494,7 +490,6 @@ module.exports = [
                 );
             }
             } catch {
-            // skip invalid/expired links silently
             }
         }
 
@@ -505,7 +500,6 @@ module.exports = [
             return;
         }
 
-        // Number and format output
         const formatted = validLinks
             .map((entry, i) => `${i + 1}. ${entry}`)
             .join("\n\n");
@@ -515,8 +509,142 @@ module.exports = [
         } catch {
         await client.sendMessage(jid, {
             text: "_❌ Couldn't fetch or parse the website. Make sure it's valid and online._"
-        }, { quoted: msg });
+            }, { quoted: msg });
+            }
         }
-    }
-    }
+    },
+    {
+        name: "gpp",
+        scut: "gpic",
+        desc: "Update group profile picture (reply to image)",
+        utility: "group",
+        fromMe: true,
+        async execute(sock, msg) {
+        const jid = msg.key.remoteJid;
+        const metadata = await sock.groupMetadata(jid).catch(() => null);
+        if (!metadata || !(await isBotAdmin(sock, metadata.participants))) {
+            return sock.sendMessage(jid, { text: "_I'm not admin_" });
+        }
+
+        const quoted = msg.message?.extendedTextMessage?.contextInfo;
+        const quotedMsg = quoted?.quotedMessage;
+        const quotedKey = quoted?.stanzaId && quoted?.participant ? {
+            remoteJid: jid,
+            id: quoted.stanzaId,
+            participant: quoted.participant
+        } : null;
+
+        if (!quotedMsg?.imageMessage || !quotedKey) {
+            return sock.sendMessage(jid, {
+            text: "_Reply to an image to set as group profile picture._"
+            });
+        }
+
+        const media = await dlMedia({ key: quotedKey, message: quotedMsg }, sock, "both");
+        if (!media) return sock.sendMessage(jid, { text: "❌ Failed to download image." });
+
+        await sock.updateProfilePicture(jid, media.buffer).catch(() => {});
+        fs.unlinkSync(media.path);
+        }
+    },
+    {
+        name: "rmgpp",
+        scut: "rgpp",
+        desc: "Remove group profile picture",
+        utility: "group",
+        fromMe: true,
+        async execute(sock, msg) {
+        const jid = msg.key.remoteJid;
+        const metadata = await sock.groupMetadata(jid).catch(() => null);
+        if (!metadata || !(await isBotAdmin(sock, metadata.participants))) {
+            return sock.sendMessage(jid, { text: "_I'm not admin_" });
+        }
+
+        await sock.removeProfilePicture(jid).catch(() => {});
+        }
+    },
+    {
+        name: "subject",
+        scut: "gname",
+        desc: "Change group name",
+        utility: "group",
+        fromMe: true,
+        async execute(sock, msg, args) {
+        const jid = msg.key.remoteJid;
+        const metadata = await sock.groupMetadata(jid).catch(() => null);
+        if (!metadata || !(await isBotAdmin(sock, metadata.participants))) {
+            return sock.sendMessage(jid, { text: "_I'm not admin_" });
+        }
+
+        const quotedText =
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text;
+
+        const name = quotedText || args.join(" ").trim();
+        if (!name) return;
+
+        await sock.groupUpdateSubject(jid, name).catch(() => {});
+        }
+    },
+    {
+        name: "description",
+        scut: "gdesc",
+        desc: "Change group description",
+        utility: "group",
+        fromMe: true,
+        async execute(sock, msg, args) {
+        const jid = msg.key.remoteJid;
+        const metadata = await sock.groupMetadata(jid).catch(() => null);
+        if (!metadata || !(await isBotAdmin(sock, metadata.participants))) {
+            return sock.sendMessage(jid, { text: "_I'm not admin_" });
+        }
+
+        const quotedText =
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text;
+
+        const desc = quotedText || args.join(" ").trim();
+        if (!desc) return;
+
+        await sock.groupUpdateDescription(jid, desc).catch(() => {});
+        }
+    },
+      {
+        name: "disap",
+        scut: "disappear",
+        desc: "Enable/disable disappearing messages (1/7/90/off)",
+        utility: "group",
+        fromMe: true,
+        async execute(sock, msg, args) {
+        const jid = msg.key.remoteJid;
+        const arg = args[0]?.toLowerCase();
+
+        const durationMap = {
+            "off": 0,
+            "0": 0,
+            "1": 86400,
+            "7": 604800,
+            "90": 7776000
+        };
+
+        if (!Object.keys(durationMap).includes(arg)) {
+            return sock.sendMessage(jid, {
+            text: "Usage:\n> .disap 1, 7, 90, or off."
+            });
+        }
+
+        if (jid.endsWith("@g.us")) {
+            const metadata = await sock.groupMetadata(jid).catch(() => null);
+            if (!metadata || !(await isBotAdmin(sock, metadata.participants))) {
+            return sock.sendMessage(jid, { text: "_I'm not admin_" });
+            }
+        }
+
+        const seconds = durationMap[arg];
+
+        await sock.sendMessage(jid, {
+            disappearingMessagesInChat: seconds
+        });
+        }
+    },
 ];

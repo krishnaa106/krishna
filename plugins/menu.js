@@ -1,7 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { execSync } = require("child_process");
 require("dotenv").config({ path: "./config.env" });
 
 const timeZone = process.env.TIMEZONE || "UTC";

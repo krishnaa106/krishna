@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
 require("dotenv").config({ path: "./config.env" });
-const {cleanup, commandExists} = require("../lib");
+const {cleanup, commandExists, saveEnv, dlMedia} = require("../lib");
 
 const CONFIG_PATH = "./config.env";
 const permissionsPath = path.join(__dirname, "../db/permissions.json");
@@ -83,6 +83,7 @@ module.exports = [
     
             if (!lines.some(line => line.startsWith(`${key}=`))) lines.push(`${key}=${value}`);
             fs.writeFileSync(CONFIG_PATH, lines.join("\n") + "\n");
+            saveEnv();
     
             return client.sendMessage(msg.key.remoteJid, { text: `✅ *${key}* set to:\n\`\`\`${value}\`\`\`` });
         }
@@ -117,7 +118,7 @@ module.exports = [
             let lines = envData.split("\n").filter(Boolean).filter(line => !line.startsWith(`${key}=`));
 
             fs.writeFileSync(CONFIG_PATH, lines.join("\n") + "\n");
-
+            saveEnv();
             return client.sendMessage(msg.key.remoteJid, { text: `✅ *${key}* deleted` });
         }
     },
@@ -155,7 +156,7 @@ module.exports = [
     
             lines = lines.map(line => (line.startsWith(`${key}=`) ? `${key}=${value}` : line));
             fs.writeFileSync(CONFIG_PATH, lines.join("\n") + "\n");
-    
+            saveEnv();
             await client.sendMessage(msg.key.remoteJid, { text: `✅ *${key}* updated to:\n\`\`\`${value}\`\`\`` });
             return { isFallback: false };
         }
@@ -532,6 +533,81 @@ module.exports = [
                 text,
                 mentions: [...perms.publicJids, ...Object.keys(perms.commandAccess)]
             });
+        }
+    },
+      {
+        name: "pp",
+        scut: "ppic",
+        desc: "Update your profile picture (reply to image)",
+        utility: "owner",
+        fromMe: true,
+        async execute(sock, msg) {
+        const quoted = msg.message?.extendedTextMessage?.contextInfo;
+        const quotedMsg = quoted?.quotedMessage;
+        const quotedKey = quoted?.stanzaId && quoted?.participant ? {
+            remoteJid: msg.key.remoteJid,
+            id: quoted.stanzaId,
+            participant: quoted.participant
+        } : null;
+
+        if (!quotedMsg?.imageMessage || !quotedKey) {
+            return sock.sendMessage(msg.key.remoteJid, {
+            text: "_Reply to an image to set as profile picture._"
+            });
+        }
+
+        const media = await dlMedia({ key: quotedKey, message: quotedMsg }, sock, "both");
+        if (!media) return sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to download image." });
+
+        await sock.updateProfilePicture(msg.key.participant, media.buffer).catch(() => {});
+        fs.unlinkSync(media.path);
+        }
+    },
+
+    {
+        name: "rmpp",
+        scut: "rpp",
+        desc: "Remove your profile picture",
+        utility: "owner",
+        fromMe: true,
+        async execute(sock, msg) {
+        await sock.removeProfilePicture(msg.key.participant).catch(() => {});
+        }
+    },
+
+    {
+        name: "username",
+        scut: "name",
+        desc: "Change your profile name",
+        utility: "owner",
+        fromMe: true,
+        async execute(sock, msg, args) {
+        const quotedText =
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text;
+
+        const name = quotedText || args.join(" ").trim();
+        if (!name) return;
+
+        await sock.updateProfileName(name);
+        }
+    },
+
+    {
+        name: "about",
+        scut: "bio",
+        desc: "Change your WhatsApp bio (about)",
+        utility: "owner",
+        fromMe: true,
+        async execute(sock, msg, args) {
+        const quotedText =
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text;
+
+        const bio = quotedText || args.join(" ").trim();
+        if (!bio) return;
+
+        await sock.updateProfileStatus(bio);
         }
     },
 ];

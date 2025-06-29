@@ -1,6 +1,7 @@
 node_modules/
-auth_info/
+session/
 eplugins/
+scripts/
 a_test.js
 config.env
 package-lock.json
