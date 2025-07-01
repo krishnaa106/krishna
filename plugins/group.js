@@ -11,7 +11,8 @@ const {
     blockUser,
     unblockUser,
     formatDateTime,
-    isBotAdmin
+    isBotAdmin,
+    dlMedia
 } = require("../lib");
 const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 

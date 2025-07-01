@@ -30,37 +30,33 @@ function extractText(message) {
 
 function getLinks(text) {
   if (!text) return [];
-
   const urlRegex = /(?:https?:\/\/)?(?:www\.)?[\w-]+\.[a-z]{2,}(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=]*)?/gi;
-  return (text.match(urlRegex) || []).map(link => normalizeLink(link));
+  return (text.match(urlRegex) || []);
 }
-
 
 function normalizeLink(link) {
-  return link.replace(/^https?:\/\//, "").replace(/^www\./, "").toLowerCase();
+  return link
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .toLowerCase();
 }
-
 
 function hasDeniedLink(text, deniedLinks = [], allowedLinks = []) {
   const links = getLinks(text);
   if (!links.length) return false;
 
+  const normalizedLinks = links.map(normalizeLink);
   const normAllowed = allowedLinks.map(normalizeLink);
   const normDenied = deniedLinks.map(normalizeLink);
 
-  const filtered = links.filter(link => {
-    const clean = normalizeLink(link);
-    return !normAllowed.some(allow => clean.includes(allow));
-  });
+  const isAllowed = (link) => normAllowed.some(allow => link.includes(allow));
+  const isDenied = (link) => normDenied.some(deny => link.includes(deny));
 
+  const filtered = normalizedLinks.filter(link => !isAllowed(link));
   if (normDenied.length === 0) return filtered.length > 0;
 
-  return filtered.some(link => {
-    const clean = normalizeLink(link);
-    return normDenied.some(deny => clean.includes(deny));
-  });
+  return filtered.some(link => isDenied(link));
 }
-
 
 function applyAntilinkTracker(sock, chat, group) {
   const trackerId = trackerPrefix + chat;
@@ -69,6 +65,8 @@ function applyAntilinkTracker(sock, chat, group) {
   sock.registerTracker(
     trackerId,
     async (m) => {
+      if (!m.key.remoteJid || m.key.remoteJid !== chat) return false;
+
       const userJid = getSender(m);
       if (!m.message || !userJid) return false;
       if (m.key.fromMe || isBotNum(userJid, sock) || isSudo(userJid)) return false;
@@ -78,6 +76,7 @@ function applyAntilinkTracker(sock, chat, group) {
       return text && hasDeniedLink(text, group.deny, group.allow);
     },
     async (client, m) => {
+      if (!m.key.remoteJid || m.key.remoteJid !== chat) return;
       const text = extractText(m.message);
       const userJid = getSender(m);
       if (!text || !userJid) return;
@@ -97,7 +96,7 @@ function applyAntilinkTracker(sock, chat, group) {
 
         if (warns >= WARN) {
           await client.sendMessage(chat, {
-            text: `🚫 ${warns}/${WARN} warnings reached. Kicking @${userJid.split("@")[0]}`,
+            text: `🚸 ${warns}/${WARN} warnings reached. Kicking @${userJid.split("@")[0]}`,
             mentions: [userJid]
           });
           await client.groupParticipantsUpdate(chat, [userJid], "remove").catch(() => {});
@@ -186,39 +185,25 @@ module.exports = [
         updateAntilinkTracker(sock, chat);
         return sock.sendMessage(chat, { text: `*Action set to:*\n> *${sub}*` });
       }
-        if (sub === "allow" || sub === "deny") {
+      if (sub === "allow" || sub === "deny") {
         const raw = args.slice(1).join(" ").trim().toLowerCase();
         const field = sub === "allow" ? "allow" : "deny";
         const oppositeField = sub === "allow" ? "deny" : "allow";
 
         if (!raw || raw === "null") {
-            group[field] = [];
+          group[field] = [];
         } else {
-            const links = raw.split(/,\s*/).filter(Boolean);
-
-            for (const link of links) {
-            const clean = normalizeLink(link);
-            
-            const conflictIndex = group[oppositeField].findIndex(existing =>
-                normalizeLink(existing).includes(clean) || clean.includes(normalizeLink(existing))
-            );
-            if (conflictIndex !== -1) {
-                group[oppositeField].splice(conflictIndex, 1);
-                await sock.sendMessage(chat, { text: `Same link was set as *${oppositeField}*.\n> Don't worry, I swapped it.` });
-            }
-            group[field].push(link);
-            }
-
-            group[field] = [...new Set(group[field])];
+          const links = raw.split(/,\s*/).filter(Boolean).map(normalizeLink);
+          group[field] = [...new Set(links)];
+          group[oppositeField] = [];
         }
 
         saveDB();
         updateAntilinkTracker(sock, chat);
         return sock.sendMessage(chat, {
-            text: `${field === "allow" ? "✅ Allowed" : "🚫 Denied"}: ${group[field].join(", ") || "-"}`
+          text: `${field === "allow" ? "✅ Allowed" : "🚫 Denied"}: ${group[field].join(", ") || "-"}`
         });
-        }
-
+      }
 
       if (sub === "clear") {
         antilinkDB[chat] = {
@@ -245,7 +230,6 @@ module.exports = [
     desc: "Warn or un-warn users manually",
     utility: "group",
     fromMe: true,
-    
     async execute(sock, msg, args) {
       const chat = msg.key.remoteJid;
       if (!antilinkDB[chat]) antilinkDB[chat] = { warns: {} };
