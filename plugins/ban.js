@@ -52,7 +52,7 @@ function scheduleUnban(sock, jid, user, time) {
     sock.unregisterTracker(`ban:${jid}:${user}`);
     removeBan(jid, user);
     sock.sendMessage(jid, {
-      text: `⏰ Auto-unbanned @${user.split("@")[0]}`,
+      text: `⏰ Auto-unbanned\n> @${user.split("@")[0]}`,
       mentions: [user],
     });
   }, time);
@@ -69,7 +69,7 @@ function scheduleReban(sock, jid, user, time) {
       }
     );
     sock.sendMessage(jid, {
-      text: `🔇 Auto-rebanned @${user.split("@")[0]}`,
+      text: `🔇 Auto-rebanned\n> @${user.split("@")[0]}`,
       mentions: [user],
     });
   }, time);
@@ -146,7 +146,7 @@ module.exports = [
       if (duration > 0) scheduleUnban(sock, chat, target, duration);
 
       return sock.sendMessage(chat, {
-        text: `🔇 Banned @${target.split("@")[0]}${duration ? ` for ${durationText}` : ""}`,
+        text: `🔇 Banned @${target.split("@")[0]}${duration ? `\n> For ${durationText}` : ""}`,
         mentions: [target],
       });
     },
@@ -196,7 +196,7 @@ module.exports = [
       if (rebanDelay > 0) {
         scheduleReban(sock, chat, target, rebanDelay);
         return sock.sendMessage(chat, {
-          text: `⏳ Temporarily unbanned @${target.split("@")[0]}, will reban in ${delayText}`,
+          text: `⏳ Temporarily unbanned @${target.split("@")[0]}\n> Will reban in ${delayText}`,
           mentions: [target],
         });
       }

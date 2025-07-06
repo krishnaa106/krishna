@@ -10,7 +10,6 @@ const {
     downloadUrl,
     extractStkZip,
     processZipStk,
-    downloadMedia,
     getStickerSize,
     getVideoDimensions,
 } = require("../lib");

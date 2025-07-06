@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
 require("dotenv").config({ path: "./config.env" });
-const {cleanup, commandExists, saveEnv, dlMedia} = require("../lib");
+const {cleanup, commandExists, saveEnv, dlMedia, starMsg} = require("../lib");
 
 const CONFIG_PATH = "./config.env";
 const permissionsPath = path.join(__dirname, "../db/permissions.json");
@@ -610,4 +610,50 @@ module.exports = [
         await sock.updateProfileStatus(bio);
         }
     },
+        {
+        name: "star",
+        desc: "⭐ Star a replied message",
+        type: "owner",
+        fromMe: false,
+
+        execute: async (sock, msg) => {
+        const context = msg.message?.extendedTextMessage?.contextInfo;
+        const stanzaId = context?.stanzaId;
+        const remoteJid = msg.key.remoteJid;
+        const participant = context?.participant || msg.key.participant;
+        const fromMe = msg.key.participant === participant;
+
+        if (!stanzaId) {
+            return sock.sendMessage(remoteJid, { text: "_Reply to a message to star it._" });
+        }
+
+        const success = await starMsg(sock, remoteJid, stanzaId, fromMe, true);
+        if (!success) {
+            return sock.sendMessage(remoteJid, { text: "_Failed to star message._" });
+        }
+        }
+    },
+    {
+        name: "unstar",
+        desc: "✩ Unstar a replied message",
+        type: "owner",
+        fromMe: false,
+
+        execute: async (sock, msg) => {
+        const context = msg.message?.extendedTextMessage?.contextInfo;
+        const stanzaId = context?.stanzaId;
+        const remoteJid = msg.key.remoteJid;
+        const participant = context?.participant || msg.key.participant;
+        const fromMe = msg.key.participant === participant;
+
+        if (!stanzaId) {
+            return sock.sendMessage(remoteJid, { text: "_Reply to a message to unstar it._" });
+        }
+
+        const success = await starMsg(sock, remoteJid, stanzaId, fromMe, false);
+        if (!success) {
+            return sock.sendMessage(remoteJid, { text: "_Failed to unstar message._" });
+        }
+        }
+    }
 ];

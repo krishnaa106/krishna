@@ -31,7 +31,7 @@ module.exports = [
         scut: "ta",
         desc: "Mention all members",
         utility: "group",
-        fromMe: false,
+        fromMe: true,
         execute: (client, msg) => tagMembers(client, msg, () => true)
     },
 
@@ -57,7 +57,7 @@ module.exports = [
         name: "tag",
         desc: "Send a hidden mention tag",
         utility: "group",
-        fromMe: false,
+        fromMe: true,
 
         execute: async (client, msg, args) => {
             try {

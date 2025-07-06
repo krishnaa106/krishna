@@ -128,19 +128,19 @@ module.exports = [
 
             const tempOutput = path.join(TMP_DIR, `${randomUUID()}_cropped.mp4`);
 
-            const cropResizeRegex = /(\d+)x(\d+)(?:\+(\d+)\+(\d+))?(?:>(\d+)x(\d+))?/;
+            const cropResizeRegex = /(\d+)x(\d+)\+(\d+),(\d+)(?:>(\d+)x(\d+))?/;
             const match = cropResizeRegex.exec(args.join(" "));
             const options = {};
 
             if (match) {
-                options.cropWidth = parseInt(match[1]);
-                options.cropHeight = parseInt(match[2]);
-                if (match[3]) options.x = parseInt(match[3]);
-                if (match[4]) options.y = parseInt(match[4]);
+                options.cropHeight = parseInt(match[1]); // height first
+                options.cropWidth = parseInt(match[2]);  // width second
+                options.x = parseInt(match[3]);
+                options.y = parseInt(match[4]);
                 if (match[5] && match[6]) {
                     options.resizeTo = {
-                        width: parseInt(match[5]),
-                        height: parseInt(match[6])
+                        height: parseInt(match[5]),
+                        width: parseInt(match[6])
                     };
                 }
             }
@@ -149,15 +149,15 @@ module.exports = [
                 if (!options.cropWidth || !options.cropHeight) {
                     const { width, height } = await getVideoDimensions(tempInput);
                     await sock.sendMessage(msg.key.remoteJid, {
-                        text: `🎞️ Original Dimensions: ${width}x${height}`
+                        text: `*Usage:*\n> .crop HxW+x,y>RHxRW\n> RHxRW is optional (resize)\nOriginal Dimensions: ${height}x${width}`
                     });
                 } else {
                     const result = await cropVid(tempInput, tempOutput, options);
                     const videoData = fs.readFileSync(result.output);
                     await sock.sendMessage(msg.key.remoteJid, {
                         video: videoData,
-                        caption: `✅ Cropped to ${options.cropWidth}x${options.cropHeight}` +
-                            (options.resizeTo ? ` and resized to ${options.resizeTo.width}x${options.resizeTo.height}` : "")
+                        caption: `✅ Cropped to ${options.cropHeight}x${options.cropWidth}` +
+                            (options.resizeTo ? ` and resized to ${options.resizeTo.height}x${options.resizeTo.width}` : "")
                     });
                     fs.unlinkSync(result.output);
                 }

@@ -96,7 +96,7 @@ function applyAntilinkTracker(sock, chat, group) {
 
         if (warns >= WARN) {
           await client.sendMessage(chat, {
-            text: `🚸 ${warns}/${WARN} warnings reached. Kicking @${userJid.split("@")[0]}`,
+            text: `🚸 ${warns}/${WARN} warnings reached.\n> Kicking @${userJid.split("@")[0]}`,
             mentions: [userJid]
           });
           await client.groupParticipantsUpdate(chat, [userJid], "remove").catch(() => {});
@@ -104,7 +104,7 @@ function applyAntilinkTracker(sock, chat, group) {
           saveDB();
         } else {
           await client.sendMessage(chat, {
-            text: `⚠️ @${userJid.split("@")[0]}, don't send restricted links!\n> Warning ${warns}/${WARN}`,
+            text: `⚠️ @${userJid.split("@")[0]}\n> Don't send restricted links!\n> Warning ${warns}/${WARN}`,
             mentions: [userJid]
           });
         }
