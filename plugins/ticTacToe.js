@@ -1,3 +1,5 @@
+const pointsManager = require("../games/pointsManager");
+
 module.exports = {
   name: "tictactoe",
   scut: "ttt",
@@ -6,56 +8,60 @@ module.exports = {
   fromMe: false,
   gameData: {},
 
-async execute(sock, msg, args) {
-  const chat = msg.key.remoteJid;
-  const sender = msg.key.participant || msg.key.remoteJid;
+  async execute(sock, msg, args) {
+    const chat = msg.key.remoteJid;
+    const sender = msg.key.participant || msg.key.remoteJid;
 
-  if (args[0]?.toLowerCase() === "stop") {
-    if (this.gameData[chat]?.active) {
-      this.endGame(sock, chat);
-      return sock.sendMessage(chat, { text: "_Game stopped!_" });
-    } else {
-      return sock.sendMessage(chat, { text: "_No active game to stop!_" });
+    if (args[0]?.toLowerCase() === "stop") {
+      if (this.gameData[chat]?.active) {
+        this.endGame(sock, chat);
+        return sock.sendMessage(chat, { text: "_Game stopped!_" });
+      } else {
+        return sock.sendMessage(chat, { text: "_No active game to stop!_" });
+      }
     }
-  }
 
-  let mentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-  const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant;
-  const isDM = chat.endsWith("@s.whatsapp.net") && !chat.includes("-");
-  const botJid = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+    let mentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant;
+    const isDM = chat.endsWith("@s.whatsapp.net") && !chat.includes("-");
+    const botJid = sock.user.id.split(":")[0] + "@s.whatsapp.net";
 
-  let player1 = sender;
-  let player2 = null;
+    let player1 = sender;
+    let player2 = null;
 
-  if (mentioned.length === 2) {
-    [player1, player2] = mentioned;
-  } else if (mentioned.length === 1) {
-    player2 = mentioned[0];
-  } else if (quotedParticipant && quotedParticipant !== sender) {
-    player2 = quotedParticipant;
-  } else if (isDM) {
-    player2 = botJid;
-  }
+    if (mentioned.length === 2) {
+      [player1, player2] = mentioned;
+    } else if (mentioned.length === 1) {
+      player2 = mentioned[0];
+    } else if (quotedParticipant && quotedParticipant !== sender) {
+      player2 = quotedParticipant;
+    } else if (isDM) {
+      player2 = botJid;
+    }
 
-  if (!player2 || player1 === player2) {
-    return sock.sendMessage(chat, { text: "_Mention one or two players, or reply to someone to start the game!_" });
-  }
+    if (!player2 || player1 === player2) {
+      return sock.sendMessage(chat, { text: "_Mention one or two players, or reply to someone to start the game!_" });
+    }
 
-  if (this.gameData[chat]?.active) {
-    return sock.sendMessage(chat, { text: "_A game is already running here!_" });
-  }
+    if (this.gameData[chat]?.active) {
+      return sock.sendMessage(chat, { text: "_A game is already running here!_" });
+    }
 
-  this.gameData[chat] = {
-    active: true,
-    board: Array(9).fill(" "),
-    players: [player1, player2],
-    symbols: { [player1]: "❌", [player2]: "⭕" },
-    turn: 0,
-  };
+    // Initialize player data if not exists
+    pointsManager.initPlayerData(player1, pointsManager.loadPointsData());
+    pointsManager.initPlayerData(player2, pointsManager.loadPointsData());
 
-  this.listen(sock, chat);
-  await this.showBoard(sock, chat);
-},
+    this.gameData[chat] = {
+      active: true,
+      board: Array(9).fill(" "),
+      players: [player1, player2],
+      symbols: { [player1]: "❌", [player2]: "⭕" },
+      turn: 0,
+    };
+
+    this.listen(sock, chat);
+    await this.showBoard(sock, chat);
+  },
 
   listen(sock, chat) {
     if (this.gameData[chat].listener) sock.ev.off("messages.upsert", this.gameData[chat].listener);
@@ -86,16 +92,33 @@ async execute(sock, msg, args) {
         await this.showBoard(sock, chat);
 
         if (winner) {
+          const winnerSymbol = game.board[winner[0]];
+          const winnerJid = winnerSymbol === game.symbols[game.players[0]] ? game.players[0] : game.players[1];
+          const loserJid = winnerJid === game.players[0] ? game.players[1] : game.players[0];
+          
+          // Update points
+          pointsManager.addPoints(winnerJid, 20);
+          pointsManager.addPoints(loserJid, -20);
+          
+          const winnerPoints = pointsManager.getPoints(winnerJid);
+          const loserPoints = pointsManager.getPoints(loserJid);
+
           await sock.sendMessage(chat, {
-            text: `🎉 @${sender.split("@")[0]} (${game.symbols[sender]}) *wins!*`,
-            mentions: [sender],
+            text: `🏆 @${winnerJid.split("@")[0]} (${winnerSymbol}) *wins!*\n` +
+                  `> +20 points (Total: ${winnerPoints})\n` +
+                  `@${loserJid.split("@")[0]} *lost*\n` +
+                  `> -20 points (Total: ${loserPoints})`,
+            mentions: [winnerJid, loserJid],
           });
           this.endGame(sock, chat);
           return;
         }
 
         if (this.isDraw(game.board)) {
-          await sock.sendMessage(chat, { text: "🤝 *It's a draw!*" });
+          await sock.sendMessage(chat, { 
+            text: "🤝 *It's a draw!*\nNo points for anyone",
+            mentions: game.players
+          });
           this.endGame(sock, chat);
         }
       }
@@ -113,10 +136,14 @@ async execute(sock, msg, args) {
     const emoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
     const board = game.board.map((v, i) => v === " " ? emoji[i] : v);
 
+    // Get current points
+    const p1Points = pointsManager.getPoints(p1);
+    const p2Points = pointsManager.getPoints(p2);
+
     const text =
       `🎮 *TICTACTOE*\n` +
-      `❌: @${p1.split("@")[0]}\n` +
-      `⭕: @${p2.split("@")[0]}\n\n` +
+      `❌: @${p1.split("@")[0]}: ${p1Points}\n` +
+      `⭕: @${p2.split("@")[0]}: ${p2Points}\n\n` +
       `🎯 *Turn:* @${turnPlayer.split("@")[0]} (${turnSymbol})\n\n` +
       `${board[0]} ${board[1]} ${board[2]}\n${board[3]} ${board[4]} ${board[5]}\n${board[6]} ${board[7]} ${board[8]}`;
 

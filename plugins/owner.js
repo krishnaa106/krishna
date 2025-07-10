@@ -240,28 +240,55 @@ module.exports = [
         }
     },
     {
-        name: "clear",
-        scut: "clc, clearchat",
-        desc: "Clears the chat where its being executed",
-        utility: "owner",
-        fromMe: true,
+    name: "clear",
+    scut: "clc, clearchat",
+    desc: "Attempts to clear the chat, or deletes the command message",
+    utility: "owner",
+    fromMe: true,
 
-        async execute(sock, msg) {
-        await sock.chatModify(
-            {
-            delete: true,
-            lastMessages: [
+    async execute(sock, msg) {
+        const timestamp =
+            msg.messageTimestamp?.low ||
+            msg.messageTimestamp?.toNumber?.() ||
+            msg.messageTimestamp ||
+            msg.timestamp ||
+            Math.floor(Date.now() / 1000);
+
+        try {
+            // Try full clear first
+            await sock.chatModify(
                 {
-                key: msg.key,
-                messageTimestamp: msg.messageTimestamp
-                }
-            ]
-            },
-            msg.key.remoteJid
-        );
-        await sock.sendMessage(msg.key.remoteJid, { text: "_cleared_" });
+                    clear: {
+                        messages: []
+                    }
+                },
+                msg.key.remoteJid
+            );
+            await sock.sendMessage(msg.key.remoteJid, { text: "_Chat cleared successfully!_" });
+        } catch (e) {
+            console.warn("⚠️ Full clear failed, falling back:", e.message);
+            try {
+                // Fallback: delete just the command message
+                await sock.chatModify(
+                    {
+                        delete: true,
+                        lastMessages: [
+                            {
+                                key: msg.key,
+                                messageTimestamp: timestamp
+                            }
+                        ]
+                    },
+                    msg.key.remoteJid
+                );
+                await sock.sendMessage(msg.key.remoteJid, { text: "_Cleared (fallback)_" });
+            } catch (err) {
+                console.error("❌ Delete failed:", err.message);
+                await sock.sendMessage(msg.key.remoteJid, { text: "_❌ Couldn't clear or delete._" });
+            }
         }
-    },
+    }
+},
     {
         name: "reboot",
         desc: "Reboot the bot",
