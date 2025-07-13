@@ -65,93 +65,93 @@ function getMaskedWord(word) {
 }
 
 module.exports = [
-{
-    name: "wg",
-    desc: "Word guessing game",
-    utility: "game",
-    fromMe: false,
-    persistentData: loadPoints(),
+    {
+        name: "wg",
+        desc: "Word guessing game",
+        utility: "game",
+        fromMe: false,
+        persistentData: loadPoints(),
 
-    async execute(sock, msg, args) {
-        const groupJID = msg.key.remoteJid;
-        if (activeWG[groupJID]) {
-            return await sock.sendMessage(groupJID, { text: "_A Word Game is already running!_" });
-        }
-
-        const word = getRandomWord();
-        const masked = getMaskedWord(word);
-        const firstLetter = word[0];
-        const that = this;
-
-        activeWG[groupJID] = {
-            word,
-            masked,
-            firstLetter,
-            listener: null,
-            timeout: null
-        };
-
-        await sock.sendMessage(groupJID, {
-            text: `🧠 *WORD GAME!* 🧠\nGuess the word:\n> \`${masked}\`\n\nStart your guesses with \`*${firstLetter.toUpperCase()}*\``,
-        });
-
-        const endGame = async (message = null) => {
-            sock.ev.off("messages.upsert", activeWG[groupJID].listener);
-            clearTimeout(activeWG[groupJID].timeout);
-            delete activeWG[groupJID];
-            
-            if (message) {
-                await sock.sendMessage(groupJID, { text: message });
+        async execute(sock, msg, args) {
+            const groupJID = msg.key.remoteJid;
+            if (activeWG[groupJID]) {
+                return await sock.sendMessage(groupJID, { text: "_A Word Game is already running!_" });
             }
-        };
 
+            const word = getRandomWord();
+            const masked = getMaskedWord(word);
+            const firstLetter = word[0];
+            const that = this;
 
-        const resetTimeout = async () => {
-            if (activeWG[groupJID].timeout) clearTimeout(activeWG[groupJID].timeout);
-            activeWG[groupJID].timeout = setTimeout(async () => {
-                await endGame(`⌛ *Time's up!*\n> The word was: \`*${word.toUpperCase()}*\``);
-            }, 60000);
-        };
+            activeWG[groupJID] = {
+                word,
+                masked,
+                firstLetter,
+                listener: null,
+                timeout: null
+            };
 
-        resetTimeout();
+            await sock.sendMessage(groupJID, {
+                text: `🧠 *WORD GAME!* 🧠\nGuess the word:\n> \`${masked}\`\n\nStart your guesses with \`*${firstLetter.toUpperCase()}*\``,
+            });
 
-        const listener = async ({ messages }) => {
-            for (const newMsg of messages) {
-                if (newMsg.key.remoteJid !== groupJID || !newMsg.message) continue;
-
-                const senderJID = newMsg.key.participant || newMsg.key.remoteJid;
-                const text = (newMsg.message.conversation || newMsg.message.extendedTextMessage?.text || "").trim().toLowerCase();
-
-                if (!text.startsWith(firstLetter)) continue;
-
-                if (text === word) {
-                    that.persistentData = initPlayerData(senderJID, that.persistentData);
-                    that.persistentData[senderJID].points += 10;
-                    that.persistentData[senderJID].gamesPlayed += 1;
-                    savePoints(that.persistentData);
-
-                    await sock.sendMessage(groupJID, {
-                        text: `🎉 *CORRECT!*\n> @${senderJID.split("@")[0]} guessed the word: *${word.toUpperCase()}*!\n+10 Points!`,
-                        mentions: [senderJID]
-                    });
-                    await endGame();
-                } else {
-                    that.persistentData = initPlayerData(senderJID, that.persistentData);
-                    that.persistentData[senderJID].points -= 5;
-                    savePoints(that.persistentData);
-
-                    await sock.sendMessage(groupJID, {
-                        text: `❌ Wrong guess by @${senderJID.split("@")[0]}!\n-5 Points.`,
-                        mentions: [senderJID]
-                    });
-
-                    resetTimeout();
+            const endGame = async (message = null) => {
+                sock.ev.off("messages.upsert", activeWG[groupJID].listener);
+                clearTimeout(activeWG[groupJID].timeout);
+                delete activeWG[groupJID];
+                
+                if (message) {
+                    await sock.sendMessage(groupJID, { text: message });
                 }
-            }
-        };
+            };
 
-        activeWG[groupJID].listener = listener;
-        sock.ev.on("messages.upsert", listener);
+
+            const resetTimeout = async () => {
+                if (activeWG[groupJID].timeout) clearTimeout(activeWG[groupJID].timeout);
+                activeWG[groupJID].timeout = setTimeout(async () => {
+                    await endGame(`⌛ *Time's up!*\n> The word was: \`*${word.toUpperCase()}*\``);
+                }, 60000);
+            };
+
+            resetTimeout();
+
+            const listener = async ({ messages }) => {
+                for (const newMsg of messages) {
+                    if (newMsg.key.remoteJid !== groupJID || !newMsg.message) continue;
+
+                    const senderJID = newMsg.key.participant || newMsg.key.remoteJid;
+                    const text = (newMsg.message.conversation || newMsg.message.extendedTextMessage?.text || "").trim().toLowerCase();
+
+                    if (!text.startsWith(firstLetter)) continue;
+
+                    if (text === word) {
+                        that.persistentData = initPlayerData(senderJID, that.persistentData);
+                        that.persistentData[senderJID].points += 10;
+                        that.persistentData[senderJID].gamesPlayed += 1;
+                        savePoints(that.persistentData);
+
+                        await sock.sendMessage(groupJID, {
+                            text: `🎉 *CORRECT!*\n> @${senderJID.split("@")[0]} guessed the word: *${word.toUpperCase()}*!\n+10 Points!`,
+                            mentions: [senderJID]
+                        });
+                        await endGame();
+                    } else {
+                        that.persistentData = initPlayerData(senderJID, that.persistentData);
+                        that.persistentData[senderJID].points -= 5;
+                        savePoints(that.persistentData);
+
+                        await sock.sendMessage(groupJID, {
+                            text: `❌ Wrong guess by @${senderJID.split("@")[0]}!\n-5 Points.`,
+                            mentions: [senderJID]
+                        });
+
+                        resetTimeout();
+                    }
+                }
+            };
+
+            activeWG[groupJID].listener = listener;
+            sock.ev.on("messages.upsert", listener);
+        }
     }
-}
 ];
