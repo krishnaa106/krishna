@@ -258,14 +258,22 @@ module.exports = [
                 if (fs.existsSync(finalPath)) {
                 const buffer = fs.readFileSync(finalPath);
                 await sock.sendMessage(chat, { sticker: buffer });
+                await new Promise(r => setTimeout(r, 200));
                 successCount++;
                 }
             } catch (err) {
                 console.warn("⚠️ Skipped image due to error:", err.message);
             } finally {
                 for (const file of tmpFiles) {
-                if (fs.existsSync(file)) fs.unlinkSync(file);
+                    try {
+                        if (fs.existsSync(file)) {
+                            fs.unlinkSync(file);
+                        }
+                    } catch (err) {
+                        console.warn("⚠️ Couldn't delete file:", file, err.message);
+                    }
                 }
+
                 await new Promise(r => setTimeout(r, 300));
             }
             }

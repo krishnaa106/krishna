@@ -2,26 +2,20 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-// Ensure database directory exists
+if (!globalThis.chorPoliceActiveGames) globalThis.chorPoliceActiveGames = {};
+const activeGames = globalThis.chorPoliceActiveGames;
+
 const dbPath = path.join(__dirname, "../games");
-if (!fs.existsSync(dbPath)) {
-    fs.mkdirSync(dbPath, { recursive: true });
-}
+if (!fs.existsSync(dbPath)) fs.mkdirSync(dbPath, { recursive: true });
 const gameDataPath = path.join(dbPath, "points.json");
 
-// Triggers configuration
 const TRIGGERS = {
-    askPolice: [
-        "who is police", "police kon", "tell me who is police",
-        "who is police?", "police kon?", "police?", "who's police",
-        "police kon h", "police kon hai", "police kon hai?"
-    ],
-    replyPolice: ["me", "i am", "it's me", "i'm police", "me police", "me hu", "mai", "main", "its me"],
-    findChor: ["find chor", "catch chor", "chor ko dhundho", "find the chor", "chor?"],
-    findDaket: ["find daket", "catch daket", "daket ko dhundho", "find the daket", "daket?"]
+    askPolice: ["who is police", "police kon", "who is police?", "police?", "police kon hai"],
+    replyPolice: ["me", "i am", "its me", "me police", "me hu", "mai", "main"],
+    findChor: ["find chor", "catch chor", "chor?", "chor ko dhundo"],
+    findDaket: ["find daket", "catch daket", "daket?", "daket ko dhundo"]
 };
 
-// Role messages
 const ROLE_MESSAGES = {
     Chor: "🔐 YOUR ROLE 🔐\n> Chor\nDon't tell anyone",
     Daket: "🔐 YOUR ROLE 🔐\n> Daket\nDon't tell anyone",
@@ -29,349 +23,324 @@ const ROLE_MESSAGES = {
     Police: "🔐 YOUR ROLE 🔐\n> Police\nIf officer asks:\nwho is police\nReply with: me"
 };
 
-// Load game data from JSON file
 function loadGameData() {
     try {
         if (fs.existsSync(gameDataPath)) {
             return JSON.parse(fs.readFileSync(gameDataPath, "utf-8"));
         }
-    } catch (error) {
-        console.error("Error loading game data:", error);
-    }
+    } catch (e) { console.error("Error loading DB:", e); }
     return {};
 }
 
-// Save game data to JSON file
 function saveGameData(data) {
     try {
         fs.writeFileSync(gameDataPath, JSON.stringify(data, null, 2), "utf-8");
-    } catch (error) {
-        console.error("Error saving game data:", error);
-    }
+    } catch (e) { console.error("Error saving DB:", e); }
 }
 
-// Initialize or update player data
-function initPlayerData(jid, gameData) {
-    if (!gameData[jid]) {
-        gameData[jid] = { points: 0, gamesPlayed: 0 };
-    }
-    return gameData;
+function initPlayerData(jid, db) {
+    if (!db[jid]) db[jid] = { points: 0, gamesPlayed: 0 };
+    return db;
 }
 
-// Check if message matches any trigger
 function matchesTrigger(message, triggers) {
-    const cleanMsg = message.toLowerCase().replace(/[^\w\s]/g, '');
-    return triggers.some(trigger => 
-        cleanMsg.includes(trigger.toLowerCase())
-    );
+    const txt = message.toLowerCase().replace(/[^\w\s]/g, '');
+    return triggers.some(t => txt.includes(t));
 }
 
 module.exports = [
-    {
-        name: "cpg",
-        desc: "Chor Police Game",
-        utility: "game",
-        fromMe: false,
-        gameData: {},
-        persistentData: loadGameData(),
+{
+    name: "cpg",
+    desc: "Chor Police Game",
+    utility: "game",
+    fromMe: false,
+    gameData: {},
+    persistentData: loadGameData(),
 
-        async execute(sock, msg, args) {
-            const groupJID = msg.key.remoteJid;
-            if (!this.gameData[groupJID]) {
-                this.gameData[groupJID] = { 
-                    active: false, 
-                    participants: {}, 
-                    scores: {}, 
-                    suspects: [], 
-                    listener: null,
-                    roundNumber: 0
-                };
-            }
+    async execute(sock, msg, args) {
+        const groupJID = msg.key.remoteJid;
 
+        if (args[0] === "stop") {
+            const senderJID = msg.key.participant || msg.key.remoteJid;
+            const botJID = sock.user.id.split(":")[0] + "@s.whatsapp.net";
             const SUDO = process.env.SUDO ? process.env.SUDO.split(",") : [];
+            const isSudo = SUDO.includes(senderJID.split("@")[0]) || senderJID === botJID;
+            const isPlayer = this.gameData[groupJID]?.participants?.[senderJID];
 
-            if (args[0] === "stop") {
-                const senderJID = msg.key.participant || msg.key.remoteJid;
-                const botJID = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-                const isSudo = SUDO.includes(senderJID.split("@")[0]) || senderJID === botJID;
-
-                if (!this.gameData[groupJID].participants[senderJID] && !isSudo) {
-                    return await sock.sendMessage(groupJID, { text: "_Only a joined player or a SUDO user can stop the game!_" });
-                }
-
-                this.saveFinalScores(groupJID);
-                this.gameData[groupJID] = { active: false, participants: {}, scores: {}, suspects: [], listener: null, roundNumber: 0 };
-                return await sock.sendMessage(groupJID, { text: "_Game stopped! Scores have been saved._" });
+            if (!activeGames[groupJID]) {
+                return await sock.sendMessage(groupJID, { text: "_No game running here._" });
             }
 
-            if (this.gameData[groupJID].active) {
-                return await sock.sendMessage(groupJID, { text: "_A game is already running!_" });
+            if (!isPlayer && !isSudo) {
+                return await sock.sendMessage(groupJID, {
+                    text: "_Only a joined player can stop the game!_"
+                });
             }
 
-            this.gameData[groupJID].active = true;
-            this.gameData[groupJID].participants = {};
-            this.gameData[groupJID].scores = {};
-            this.gameData[groupJID].roundNumber = 0;
-
-            await sock.sendMessage(groupJID, { text: "🎮 `CHOR POLICE GAME` 🎮\nType 'join' to participate!\n(_4 players required_)" });
-
-            if (this.gameData[groupJID].listener) {
+            if (this.gameData[groupJID]?.listener)
                 sock.ev.off("messages.upsert", this.gameData[groupJID].listener);
-            }
-
-            this.gameData[groupJID].listener = async ({ messages }) => {
-                for (const newMsg of messages) {
-                    if (newMsg.key.remoteJid !== groupJID || !newMsg.message) continue;
-                    
-                    const senderJID = newMsg.key.participant || newMsg.key.remoteJid;
-                    const messageText = (newMsg.message.conversation || newMsg.message.extendedTextMessage?.text || "").toLowerCase();
-
-                    if (messageText === "join" && Object.keys(this.gameData[groupJID].participants).length < 4) {
-                        if (!this.gameData[groupJID].participants[senderJID]) {
-                            this.persistentData = initPlayerData(senderJID, this.persistentData);
-                            this.gameData[groupJID].participants[senderJID] = { jid: senderJID };
-                            this.gameData[groupJID].scores[senderJID] = 0;
-
-                            const joinCount = Object.keys(this.gameData[groupJID].participants).length;
-                            const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"];
-                            
-                            await sock.sendMessage(groupJID, { 
-                                text: `✅ @${senderJID.split("@")[0]} joined!\n> Total points: ${this.persistentData[senderJID].points}`, 
-                                mentions: [senderJID] 
-                            });
-                            await sock.sendMessage(groupJID, { 
-                                react: { text: numberEmojis[joinCount - 1], key: newMsg.key } 
-                            });
-                        }
-                        
-                        if (Object.keys(this.gameData[groupJID].participants).length === 4) {
-                            this.assignRoles(sock, groupJID);
-                        }
-                    }
-                }
-            };
-
-            sock.ev.on("messages.upsert", this.gameData[groupJID].listener);
-        },
-
-        saveFinalScores(groupJID) {
-            const gameScores = this.gameData[groupJID].scores;
-            for (const [jid, scoreEarnedThisRound] of Object.entries(gameScores)) {
-                this.persistentData = initPlayerData(jid, this.persistentData);
-                this.persistentData[jid].points += scoreEarnedThisRound;
-                this.persistentData[jid].gamesPlayed += 1;
-            }
-            saveGameData(this.persistentData);
-        },
-
-        getUltraRandomIndex(length) {
-            const randomBytes = crypto.randomBytes(4);
-            return randomBytes.readUInt32BE(0) % length;
-        },
-
-        async assignRoles(sock, groupJID) {
-            this.gameData[groupJID].roundNumber++;
-            await sock.sendMessage(groupJID, { text: `🎮 ROUND ${this.gameData[groupJID].roundNumber} STARTS!` });
-
-            const roles = ["Officer", "Police", "Daket", "Chor"];
-            const players = Object.keys(this.gameData[groupJID].participants);
-            const assigned = new Set();
-
-            for (let i = players.length - 1; i > 0; i--) {
-                const j = this.getUltraRandomIndex(i + 1);
-                [players[i], players[j]] = [players[j], players[i]];
-            }
-
-            for (const role of roles) {
-                let index;
-                do {
-                    index = this.getUltraRandomIndex(players.length);
-                } while (assigned.has(index));
-                assigned.add(index);
-
-                const jid = players[index];
-                this.gameData[groupJID].participants[jid].role = role;
-                await sock.sendMessage(jid, { text: ROLE_MESSAGES[role] });
-            }
-
-            this.startRound(sock, groupJID);
-        },
-
-        async startRound(sock, groupJID) {
-            if (this.gameData[groupJID].listener) {
-                sock.ev.off("messages.upsert", this.gameData[groupJID].listener);
-            }
-
-            this.gameData[groupJID].hasAskedWhoIsPolice = false;
-            this.gameData[groupJID].policeReplied = false;
-            this.gameData[groupJID].reactionEnabled = false;
-
-            this.gameData[groupJID].listener = async ({ messages }) => {
-                for (const newMsg of messages) {
-                    if (newMsg.key.remoteJid !== groupJID || !newMsg.message) continue;
-                    
-                    const senderJID = newMsg.key.participant || newMsg.key.remoteJid;
-                    const messageText = (newMsg.message.conversation || newMsg.message.extendedTextMessage?.text || "").toLowerCase();
-                    const participants = this.gameData[groupJID].participants;
-
-                    if (!participants[senderJID]) continue;
-
-                    if (participants[senderJID].role === "Officer" && 
-                        matchesTrigger(messageText, TRIGGERS.askPolice) && 
-                        !this.gameData[groupJID].hasAskedWhoIsPolice) {
-                        this.gameData[groupJID].hasAskedWhoIsPolice = true;
-                        await sock.sendMessage(groupJID, { react: { text: "🧑🏻‍💼", key: newMsg.key } });
-                    }
-                    
-                    if (participants[senderJID].role === "Police" && 
-                        matchesTrigger(messageText, TRIGGERS.replyPolice) && 
-                        this.gameData[groupJID].hasAskedWhoIsPolice && 
-                        !this.gameData[groupJID].policeReplied) {
-                        this.gameData[groupJID].policeReplied = true;
-                        this.gameData[groupJID].reactionEnabled = true;
-                        await sock.sendMessage(groupJID, { react: { text: "👮🏻‍♂", key: newMsg.key } });
-                    }
-                    
-                    if (this.gameData[groupJID].reactionEnabled) {
-                        if (participants[senderJID].role === "Officer" && messageText === "officer") {
-                            await sock.sendMessage(groupJID, { react: { text: "🧑🏻‍💼", key: newMsg.key } });
-                        }
-                        if (participants[senderJID].role === "Police" && messageText === "police") {
-                            await sock.sendMessage(groupJID, { react: { text: "👮🏻‍♂", key: newMsg.key } });
-                        }
-                    }
-                    
-                    if (participants[senderJID].role === "Officer") {
-                        if (matchesTrigger(messageText, TRIGGERS.findChor)) {
-                            await this.findSuspects(sock, groupJID, "find chor");
-                        } else if (matchesTrigger(messageText, TRIGGERS.findDaket)) {
-                            await this.findSuspects(sock, groupJID, "find daket");
-                        }
-                    }
-                    
-                    if (participants[senderJID].role === "Police" && ["1", "2"].includes(messageText)) {
-                        await this.evaluateGuess(sock, groupJID, senderJID, this.gameData[groupJID].suspects[parseInt(messageText) - 1]);
-                    }
-                }
-            };
-
-            sock.ev.on("messages.upsert", this.gameData[groupJID].listener);
-        },
-
-        async findSuspects(sock, groupJID, target) {
-            const participants = this.gameData[groupJID].participants;
-            const suspects = Object.keys(participants)
-                .filter(jid => ["Chor", "Daket"].includes(participants[jid].role))
-                .sort(() => 0.5 - Math.random());
-
-            this.gameData[groupJID].target = target.includes("chor") ? "Chor" : "Daket";
-            this.gameData[groupJID].suspects = suspects.slice(0, 2);
-
-            await sock.sendMessage(groupJID, {
-                text: `\`SUSPECTS:\`\n1️⃣ @${suspects[0].split("@")[0]}\n2️⃣ @${suspects[1].split("@")[0]}`,
-                mentions: suspects.slice(0, 2)
-            });
-        },
-
-        async evaluateGuess(sock, groupJID, policeJID, suspectJID) {
-            const target = this.gameData[groupJID].target;
-            const participants = this.gameData[groupJID].participants;
-            const scores = this.gameData[groupJID].scores;
-
-            if (!target || !suspectJID) return;
-            
-            const suspectRole = participants[suspectJID]?.role;
-            if (!suspectRole) return;
-
-            const officerJID = Object.keys(participants).find(jid => participants[jid].role === "Officer");
-            if (!officerJID) return;
-
-            const scoreChanges = {};
-            let resultMessage = "";
-
-            if ((target === "Chor" && suspectRole === "Chor") || (target === "Daket" && suspectRole === "Daket")) {
-                scoreChanges[officerJID] = (scoreChanges[officerJID] || 0) + 50;
-                scoreChanges[policeJID] = (scoreChanges[policeJID] || 0) + 10;
-                scoreChanges[suspectJID] = (scoreChanges[suspectJID] || 0) - 5;
-
-                for (const [jid, player] of Object.entries(participants)) {
-                    if (jid !== suspectJID) {
-                        if (player.role === "Daket") scoreChanges[jid] = (scoreChanges[jid] || 0) + 5;
-                        if (player.role === "Chor") scoreChanges[jid] = (scoreChanges[jid] || 0) + 1;
-                    }
-                }
-
-                resultMessage = `✅ CORRECT!\n> @${suspectJID.split("@")[0]} was the ${target}!\n+50 Officer, +10 Police, -5 ${target} 🎉`;
-            } else {
-                scoreChanges[officerJID] = (scoreChanges[officerJID] || 0) - 30;
-                scoreChanges[policeJID] = (scoreChanges[policeJID] || 0) - 6;
-
-                for (const [jid, player] of Object.entries(participants)) {
-                    if (player.role === "Daket") scoreChanges[jid] = (scoreChanges[jid] || 0) + 5;
-                    if (player.role === "Chor") scoreChanges[jid] = (scoreChanges[jid] || 0) + 1;
-                }
-
-                resultMessage = `❌ WRONG GUESS!\n> @${suspectJID.split("@")[0]} was actually the ${suspectRole}.\n-30 Officer, -6 Police`;
-            }
-
-            for (const [jid, change] of Object.entries(scoreChanges)) {
-                this.gameData[groupJID].scores[jid] = (this.gameData[groupJID].scores[jid] || 0) + change;
-            }
 
             this.saveFinalScores(groupJID);
+            delete this.gameData[groupJID];
+            delete activeGames[groupJID];
 
-            await sock.sendMessage(groupJID, { 
-                text: resultMessage, 
-                mentions: [suspectJID, policeJID, officerJID] 
-            });
-            
-            await this.showScores(sock, groupJID);
+            return await sock.sendMessage(groupJID, { text: "_Game stopped! Scores saved._" });
+        }
 
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            this.assignRoles(sock, groupJID);
-        },
+        if (activeGames[groupJID]) {
+            return await sock.sendMessage(groupJID, { text: "_A game is already running in this chat!_" });
+        }
 
-        async showScores(sock, groupJID) {
-            const scores = this.gameData[groupJID].scores;
-            let scoreMessage = "📊 CURRENT SCORES:\n";
+        activeGames[groupJID] = true;
 
-            const sortedScores = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-            
-            for (const [jid, score] of sortedScores) {
-                const totalPoints = this.persistentData[jid]?.points || 0;
-                scoreMessage += `@${jid.split("@")[0]}: ${totalPoints}\n`;
+        const data = this.gameData[groupJID] = {
+            participants: {},
+            scores: {},
+            hasAskedWhoIsPolice: false,
+            policeReplied: false,
+            reactionEnabled: false,
+            suspects: [],
+            listener: null
+        };
+
+        await sock.sendMessage(groupJID, { text: "🎮 `CHOR POLICE GAME` 🎮\nType 'join' to participate!\n(_4 players required_)" });
+
+        let joinTimeout;
+        const resetJoinTimeout = () => {
+            if (joinTimeout) clearTimeout(joinTimeout);
+            joinTimeout = setTimeout(async () => {
+                if (Object.keys(data.participants).length < 4) {
+                    await sock.sendMessage(groupJID, { text: "_Game canceled due to not enough players!_" });
+                    if (data.listener) sock.ev.off("messages.upsert", data.listener);
+                    delete this.gameData[groupJID];
+                    delete activeGames[groupJID];
+                }
+            }, 60000);
+        };
+        resetJoinTimeout();
+
+        const listener = async ({ messages }) => {
+            for (const newMsg of messages) {
+                if (newMsg.key.remoteJid !== groupJID || !newMsg.message) continue;
+
+                const senderJID = newMsg.key.participant || newMsg.key.remoteJid;
+                const text = (newMsg.message.conversation || newMsg.message.extendedTextMessage?.text || "").toLowerCase();
+
+                // Leave = stop
+                if (text === "leave" && data.participants[senderJID]) {
+                    await sock.sendMessage(groupJID, { text: "_Game stopped by a player!_" });
+                    if (data.listener) sock.ev.off("messages.upsert", data.listener);
+                    this.saveFinalScores(groupJID);
+                    delete this.gameData[groupJID];
+                    delete activeGames[groupJID];
+                    return;
+                }
+
+                // Join game
+                if (text === "join" && Object.keys(data.participants).length < 4) {
+                    if (!data.participants[senderJID]) {
+                        this.persistentData = initPlayerData(senderJID, this.persistentData);
+                        data.participants[senderJID] = { jid: senderJID };
+                        data.scores[senderJID] = 0;
+
+                        const joined = Object.keys(data.participants).length;
+                        const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"];
+                        await sock.sendMessage(groupJID, {
+                            text: `✅ @${senderJID.split("@")[0]} joined!\n> Total points: ${this.persistentData[senderJID].points}`,
+                            mentions: [senderJID]
+                        });
+                        await sock.sendMessage(groupJID, {
+                            react: { text: emojis[joined - 1], key: newMsg.key }
+                        });
+                        resetJoinTimeout();
+                    }
+
+                    if (Object.keys(data.participants).length === 4) {
+                        clearTimeout(joinTimeout);
+                        await this.assignRoles(sock, groupJID);
+                    }
+                }
             }
+        };
 
-            await sock.sendMessage(groupJID, { 
-                text: scoreMessage, 
-                mentions: Object.keys(scores) 
-            });
-        }
+        data.listener = listener;
+        sock.ev.on("messages.upsert", listener);
     },
-    {
-        name: "leaderboard",
-        desc: "Show top players",
-        utility: "game",
-        fromMe: false,
 
-        async execute(sock, msg, args) {
-            const gameData = loadGameData();
-            const topPlayers = Object.entries(gameData)
-                .sort((a, b) => b[1].points - a[1].points)
-                .slice(0, 10)
-                .map(([jid, data]) => ({ jid, ...data }));
-
-            let leaderboard = "🏁 TOP 10 PLAYERS 🏁\n\n";
-            topPlayers.forEach((player, index) => {
-                leaderboard += `${index + 1}. @${player.jid.split("@")[0]}\n`;
-                leaderboard += `> Points: ${player.points}\n`;
-                leaderboard += `> Games Played: ${player.gamesPlayed}\n\n`;
-            });
-
-            await sock.sendMessage(msg.key.remoteJid, {
-                text: leaderboard.trim(),
-                mentions: topPlayers.map(p => p.jid)
-            });
+    saveFinalScores(groupJID) {
+        const scores = this.gameData[groupJID]?.scores || {};
+        for (const [jid, delta] of Object.entries(scores)) {
+            this.persistentData = initPlayerData(jid, this.persistentData);
+            this.persistentData[jid].points += delta;
+            this.persistentData[jid].gamesPlayed += 1;
         }
+        saveGameData(this.persistentData);
+    },
+
+    getUltraRandomIndex(len) {
+        const rand = crypto.randomBytes(4).readUInt32BE(0);
+        return rand % len;
+    },
+
+    async assignRoles(sock, groupJID) {
+        const players = Object.keys(this.gameData[groupJID].participants);
+        const roles = ["Officer", "Police", "Daket", "Chor"];
+        players.sort(() => 0.5 - Math.random());
+
+        for (let i = 0; i < 4; i++) {
+            const jid = players[i];
+            this.gameData[groupJID].participants[jid].role = roles[i];
+            await sock.sendMessage(jid, { text: ROLE_MESSAGES[roles[i]] });
+        }
+
+        await sock.sendMessage(groupJID, { text: `🎮 ROUND STARTS! 🎮` });
+        await this.startRound(sock, groupJID);
+    },
+
+    async startRound(sock, groupJID) {
+        const data = this.gameData[groupJID];
+        if (data.listener) sock.ev.off("messages.upsert", data.listener);
+
+        data.hasAskedWhoIsPolice = false;
+        data.policeReplied = false;
+        data.reactionEnabled = false;
+
+        const listener = async ({ messages }) => {
+            for (const m of messages) {
+                if (m.key.remoteJid !== groupJID || !m.message) continue;
+
+                const jid = m.key.participant || m.key.remoteJid;
+                const txt = (m.message.conversation || m.message.extendedTextMessage?.text || "").toLowerCase();
+                const p = data.participants;
+
+                if (!p[jid]) continue;
+
+                if (p[jid].role === "Officer" && matchesTrigger(txt, TRIGGERS.askPolice) && !data.hasAskedWhoIsPolice) {
+                    data.hasAskedWhoIsPolice = true;
+                    await sock.sendMessage(groupJID, { react: { text: "🧑🏻‍💼", key: m.key } });
+                }
+
+                if (p[jid].role === "Police" && matchesTrigger(txt, TRIGGERS.replyPolice) && data.hasAskedWhoIsPolice && !data.policeReplied) {
+                    data.policeReplied = true;
+                    data.reactionEnabled = true;
+                    await sock.sendMessage(groupJID, { react: { text: "👮🏻‍♂", key: m.key } });
+                }
+
+                if (data.reactionEnabled) {
+                    if (p[jid].role === "Officer" && txt === "officer") {
+                        await sock.sendMessage(groupJID, { react: { text: "🧑🏻‍💼", key: m.key } });
+                    } else if (p[jid].role === "Police" && txt === "police") {
+                        await sock.sendMessage(groupJID, { react: { text: "👮🏻‍♂", key: m.key } });
+                    }
+                }
+
+                if (p[jid].role === "Officer") {
+                    if (matchesTrigger(txt, TRIGGERS.findChor)) await this.findSuspects(sock, groupJID, "chor");
+                    else if (matchesTrigger(txt, TRIGGERS.findDaket)) await this.findSuspects(sock, groupJID, "daket");
+                }
+
+                if (p[jid].role === "Police" && ["1", "2"].includes(txt)) {
+                    const suspect = data.suspects[parseInt(txt) - 1];
+                    if (suspect) await this.evaluateGuess(sock, groupJID, jid, suspect);
+                }
+            }
+        };
+
+        data.listener = listener;
+        sock.ev.on("messages.upsert", listener);
+    },
+
+    async findSuspects(sock, groupJID, targetType) {
+        const p = this.gameData[groupJID].participants;
+        const suspects = Object.keys(p)
+            .filter(jid => ["Chor", "Daket"].includes(p[jid].role))
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 2);
+
+        this.gameData[groupJID].target = targetType === "chor" ? "Chor" : "Daket";
+        this.gameData[groupJID].suspects = suspects;
+
+        await sock.sendMessage(groupJID, {
+            text: `\`SUSPECTS:\`\n1️⃣ @${suspects[0].split("@")[0]}\n2️⃣ @${suspects[1].split("@")[0]}`,
+            mentions: suspects
+        });
+    },
+
+    async evaluateGuess(sock, groupJID, policeJID, suspectJID) {
+        const { participants, scores, target } = this.gameData[groupJID];
+        const officerJID = Object.keys(participants).find(j => participants[j].role === "Officer");
+        const suspectRole = participants[suspectJID]?.role;
+
+        const change = {};
+        let result = "";
+
+        if (suspectRole === target) {
+            change[officerJID] = 30;
+            change[policeJID] = 20;
+            change[suspectJID] = -20;
+            result = `✅ CORRECT!\n> @${suspectJID.split("@")[0]} was the ${target}! 🎉`;
+        } else {
+            change[officerJID] = -30;
+            change[policeJID] = -20;
+            result = `❌ WRONG GUESS!\n> @${suspectJID.split("@")[0]} was the ${suspectRole}.`;
+        }
+
+        for (const jid of Object.keys(participants)) {
+            if (participants[jid].role === "Daket") change[jid] = (change[jid] || 0) + 5;
+            if (participants[jid].role === "Chor") change[jid] = (change[jid] || 0) + 1;
+        }
+
+        for (const [jid, delta] of Object.entries(change)) {
+            scores[jid] = (scores[jid] || 0) + delta;
+        }
+
+        await sock.sendMessage(groupJID, {
+            text: result,
+            mentions: [suspectJID, policeJID, officerJID]
+        });
+
+        await this.showScores(sock, groupJID);
+        this.saveFinalScores(groupJID);
+        if (this.gameData[groupJID].listener)
+            sock.ev.off("messages.upsert", this.gameData[groupJID].listener);
+        delete this.gameData[groupJID];
+        delete activeGames[groupJID];
+    },
+
+    async showScores(sock, groupJID) {
+        const scores = this.gameData[groupJID]?.scores || {};
+        let text = "📊 CURRENT SCORES:\n";
+        const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+
+        for (const [jid, scr] of sorted) {
+            const total = this.persistentData[jid]?.points || 0;
+            text += `@${jid.split("@")[0]}: ${total}\n`;
+        }
+
+        await sock.sendMessage(groupJID, { text, mentions: Object.keys(scores) });
     }
+},
+{
+    name: "leaderboard",
+    desc: "Show top players",
+    utility: "game",
+    fromMe: false,
+    async execute(sock, msg) {
+        const gameData = loadGameData();
+        const top = Object.entries(gameData)
+            .sort((a, b) => b[1].points - a[1].points)
+            .slice(0, 10);
+
+        let text = "🏁 TOP 10 PLAYERS 🏁\n\n";
+        top.forEach(([jid, data], i) => {
+            text += `${i + 1}. @${jid.split("@")[0]}\n> Points: ${data.points}\n> Games Played: ${data.gamesPlayed}\n\n`;
+        });
+
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: text.trim(),
+            mentions: top.map(([jid]) => jid)
+        });
+    }
+}
 ];
+//final one
