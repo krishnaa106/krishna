@@ -62,44 +62,50 @@ module.exports = [
     
     {
         name: "vn",
-        desc: "Convert any replied audio file into a voice message",
+        desc: "Convert replied audio to a voice note (PTT)",
         utility: "media",
         fromMe: false,
 
         execute: async (sock, msg) => {
             try {
-                if (!msg.message.extendedTextMessage || !msg.message.extendedTextMessage.contextInfo.quotedMessage) {
-                    await sock.sendMessage(msg.key.remoteJid, { text: "_Please reply to an audio file!_" });
-                    return {isFallback: true};
+                const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+                if (!quoted || !quoted.audioMessage) {
+                    await sock.sendMessage(msg.key.remoteJid, { text: "_❗Please reply to an audio file!_" });
+                    return { isFallback: true };
                 }
 
                 const inputPath = await downloadMedia(msg);
                 if (!inputPath) {
-                    return sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to download audio file!" });
+                    await sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to download audio file!" });
+                    return;
                 }
-                
-                const fixedPath = path.join(TMP_DIR, `converted_${Date.now()}.ogg`);
 
-                exec(`ffmpeg -i "${inputPath}" -ar 16000 -ac 1 -b:a 32k -c:a libopus "${fixedPath}"`, async (error) => {
-                    if (error) {
-                        console.error("❌ Error converting audio:", error);
-                        return sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to process audio file." });
+                const outputPath = path.join(TMP_DIR, `vn_${Date.now()}.opus`);
+
+                const ffmpegCmd = `ffmpeg -y -i "${inputPath}" -vn -acodec libopus -ar 16000 -ac 1 -b:a 96k "${outputPath}"`;
+
+                exec(ffmpegCmd, async (err) => {
+                    if (err) {
+                        console.error("❌ FFmpeg Error:", err);
+                        await sock.sendMessage(msg.key.remoteJid, { text: "❌ Audio conversion failed." });
+                        return;
                     }
 
-                    const audioBuffer = fs.readFileSync(fixedPath);
+                    const audioBuffer = fs.readFileSync(outputPath);
 
                     await sock.sendMessage(msg.key.remoteJid, {
                         audio: audioBuffer,
                         mimetype: "audio/ogg; codecs=opus",
                         ptt: true,
                     });
-                    
-                    fs.unlinkSync(inputPath); 
-                    fs.unlinkSync(fixedPath);
+
+                    fs.unlinkSync(inputPath);
+                    fs.unlinkSync(outputPath);
                 });
-            } catch (error) {
-                console.error("❌ Error sending voice note:", error);
-                await sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to send voice note." });
+
+            } catch (err) {
+                console.error("❌ Voice Note Error:", err);
+                await sock.sendMessage(msg.key.remoteJid, { text: "❌ Something went wrong during conversion." });
             }
         }
     },

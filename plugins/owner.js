@@ -325,7 +325,7 @@ module.exports = [
             }
 
             const command = args[0].toLowerCase();
-        const usagePath = path.join(__dirname, "..", "lixon", "usage.json");
+        const usagePath = path.join(__dirname, "..", "db", "usage.json");
 
             let usageData;
 

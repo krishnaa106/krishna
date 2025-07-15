@@ -26,7 +26,7 @@ module.exports = [
         name: "pint",
         desc: "Fetch images from Pinterest and convert them into stickers.",
         utility: "sticker",
-        fromMe: false,
+        fromMe: true,
 
         execute: async (client, msg, args) => {
 
@@ -112,7 +112,7 @@ module.exports = [
         name: "ssize",
         desc: "Set sticker crop size, placement, and optional frame",
         utility: "sticker",
-        fromMe: false,
+        fromMe: true,
     
         execute: async (client, msg, args) => {
             try {

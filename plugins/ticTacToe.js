@@ -1,4 +1,5 @@
 const pointsManager = require("../games/pointsManager");
+const gameLock = require("../games/gameLock");
 
 // Global persistent lock
 if (!globalThis.tttActiveGames) globalThis.tttActiveGames = {};
@@ -26,10 +27,13 @@ module.exports = [
             }
           }
 
-          // ✅ Strict Lock Check
-          if (activeGames[chat]?.active) {
-            return sock.sendMessage(chat, { text: "_A game is already running in this chat!_" });
+          // ✅ Global Lock Check
+          if (gameLock.isGameActive(chat)) {
+            return sock.sendMessage(chat, { text: "_Another game is already running in this chat!_" });
           }
+
+          gameLock.setGameActive(chat, "tictactoe");
+
 
           // 🔐 Lock immediately
           activeGames[chat] = { active: true };
@@ -192,6 +196,7 @@ module.exports = [
           if (game.listener) sock.ev.off("messages.upsert", game.listener);
           if (game.timeout) clearTimeout(game.timeout);
           delete activeGames[chat];
-        },
+          gameLock.clearGame(chat); // 🔓 Clear global game lock
+        }
     }
 ];

@@ -5,7 +5,7 @@ module.exports = [
         name: "ai",
         desc: "Ask DeepSeek AI",
         type: "ai",
-        fromMe: false,
+        fromMe: true,
 
         async execute(sock, msg, text) {
         const ctx = msg.message?.extendedTextMessage?.contextInfo;

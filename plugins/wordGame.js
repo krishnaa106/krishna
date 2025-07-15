@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const gameLock = require("../games/gameLock");
 
 const wordFilePath = path.join(__dirname, "../media/assets/wordlist.txt");
 
@@ -74,9 +75,22 @@ module.exports = [
 
         async execute(sock, msg, args) {
             const groupJID = msg.key.remoteJid;
-            if (activeWG[groupJID]) {
-                return await sock.sendMessage(groupJID, { text: "_A Word Game is already running!_" });
+
+            const cooldown = gameLock.isOnCooldown("wordGame", groupJID);
+            if (cooldown) {
+                const mins = Math.floor(cooldown.remaining / 60000);
+                const secs = Math.floor((cooldown.remaining % 60000) / 1000);
+                return await sock.sendMessage(groupJID, {
+                    text: `⚠️ *WORD GAME is on maintenance break!*\n> Remaining time: ${mins}m ${secs}s`
+                });
             }
+
+            if (gameLock.isGameActive(groupJID)) {
+                return await sock.sendMessage(groupJID, { text: "_Another game is already running in this chat!_" });
+            }
+
+            gameLock.setGameActive(groupJID, "wordGame");
+
 
             const word = getRandomWord();
             const masked = getMaskedWord(word);
@@ -91,17 +105,18 @@ module.exports = [
                 timeout: null
             };
 
-            await sock.sendMessage(groupJID, {
+            const questionMsg = await sock.sendMessage(groupJID, {
                 text: `🧠 *WORD GAME!* 🧠\nGuess the word:\n> \`${masked}\`\n\nStart your guesses with \`*${firstLetter.toUpperCase()}*\``,
             });
 
-            const endGame = async (message = null) => {
+            const endGame = async (message = null, quoted = null) => {
                 sock.ev.off("messages.upsert", activeWG[groupJID].listener);
                 clearTimeout(activeWG[groupJID].timeout);
                 delete activeWG[groupJID];
-                
+                gameLock.clearGame(groupJID); // 🧹 remove from global lock
+                gameLock.increaseMatchCount("wordGame", groupJID, 30, 20); // 30 matches → 20 min cooldown
                 if (message) {
-                    await sock.sendMessage(groupJID, { text: message });
+                    await sock.sendMessage(groupJID, { text: message }, { quoted });
                 }
             };
 
@@ -109,8 +124,9 @@ module.exports = [
             const resetTimeout = async () => {
                 if (activeWG[groupJID].timeout) clearTimeout(activeWG[groupJID].timeout);
                 activeWG[groupJID].timeout = setTimeout(async () => {
-                    await endGame(`⌛ *Time's up!*\n> The word was: \`*${word.toUpperCase()}*\``);
+                    await endGame(`⌛ *TIME's UP!*\n> The word was: \`*${word.toUpperCase()}*\``, questionMsg);
                 }, 60000);
+
             };
 
             resetTimeout();
@@ -130,20 +146,29 @@ module.exports = [
                         that.persistentData[senderJID].gamesPlayed += 1;
                         savePoints(that.persistentData);
 
-                        await sock.sendMessage(groupJID, {
-                            text: `🎉 *CORRECT!*\n> @${senderJID.split("@")[0]} guessed the word: *${word.toUpperCase()}*!\n+10 Points!`,
-                            mentions: [senderJID]
-                        });
+                        await sock.sendMessage(
+                            groupJID,
+                            {
+                                text: `✅ *CORRECT!*\n> @${senderJID.split("@")[0]}\n> guessed the word: \`*${word.toUpperCase()}*\`\n+10 Points!`,
+                                mentions: [senderJID],
+                            },
+                            { quoted: newMsg }
+                        );
+
                         await endGame();
                     } else {
                         that.persistentData = initPlayerData(senderJID, that.persistentData);
                         that.persistentData[senderJID].points -= 5;
                         savePoints(that.persistentData);
 
-                        await sock.sendMessage(groupJID, {
-                            text: `❌ Wrong guess by @${senderJID.split("@")[0]}!\n-5 Points.`,
-                            mentions: [senderJID]
-                        });
+                        await sock.sendMessage(
+                            groupJID,
+                            {
+                                text: `❌ *WRONG!*\n> Guess by: @${senderJID.split("@")[0]}!\n-5 Points.`,
+                                mentions: [senderJID],
+                            },
+                            { quoted: newMsg }
+                        );
 
                         resetTimeout();
                     }

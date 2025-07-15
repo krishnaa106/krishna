@@ -194,7 +194,7 @@ module.exports = [
         name: "szip",
         desc: "Extracts and processes .webp stickers from a ZIP file",
         utility: "sticker",
-        fromMe: false,
+        fromMe: true,
     
         execute: async (client, msg) => {
             isZipStopped = false;
@@ -299,7 +299,7 @@ module.exports = [
         scut: ".,svs",
         desc: "Change the pack and author of a sticker",
         utility: "sticker",
-        fromMe: false,
+        fromMe: true,
     
         execute: async (client, msg, args) => {
             let mediaPath;
