@@ -29,7 +29,7 @@ Follow these steps to get your Lixon bot up and running:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/manjisama1/LIXON.git
+    git clone https://github.com/krishnaa106/krishna.git
     ```
 
 2.  **Navigate to the project directory:**
@@ -63,8 +63,8 @@ BOT_MODE=private
 TIMEZONE=Asia/Kolkata
 RMBG_API_KEY=g7MwWtpVCCnU7e1JEHuuz3Tv
 PIN_API=http://localhost:3000/scrape
-GIT_REPO=https://github.com/manjisama1/LIXON
-GIT_BRANCH=https://github.com/manjisama1/LIXON/tree/main
+GIT_REPO=https://github.com/krishnaa106/krishna
+GIT_BRANCH=https://github.com/krishnaa106/krishna/tree/main
 PINTEREST_COOKIE=null
 ```
 
@@ -81,8 +81,8 @@ PINTEREST_COOKIE=null
 | `TIMEZONE`         | The timezone for the bot.                          | `Asia/Kolkata`                                     |
 | `RMBG_API_KEY`     | Your API key for [remove.bg](https://www.remove.bg/). | `g7MwWtpVCCnU7e1JEHuuz3Tv`                         |
 | `PIN_API`          | The API endpoint for the Pinterest scraper.        | `http://localhost:3000/scrape`                     |
-| `GIT_REPO`         | The git repository URL for the update command.     | `https://github.com/manjisama1/LIXON`              |
-| `GIT_BRANCH`       | The git repository branch for the update command.  | `https://github.com/manjisama1/LIXON/tree/main`    |
+| `GIT_REPO`         | The git repository URL for the update command.     | `https://github.com/krishnaa106/krishna`              |
+| `GIT_BRANCH`       | The git repository branch for the update command.  | `https://github.com/krishnaa106/krishna/tree/main`    |
 | `PINTEREST_COOKIE` | Your cookie for Pinterest access if needed.        | `null`                                             |
 
 ## Running the Bot
