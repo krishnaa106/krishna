@@ -8,8 +8,7 @@ Lixon is a powerful and feature-rich WhatsApp bot built with Node.js and [@whisk
 
 Lixon comes packed with a wide range of features, including:
 
-- **AI Integration:** Chat with an AI directly in WhatsApp.
-- **Media Tools:** Create stickers, download videos from Pinterest, and play music.
+- **Media Tools:** Create stickers, download videos from Pinterest,crop videos etc.
 - **Group Management:** Automatically remove links, ban users, and manage group settings.
 - **Fun & Games:** Play games like Tic-Tac-Toe, Word Games, and Math Puzzles.
 - **Utility Tools:** Get quotes, manage plugins, and much more.

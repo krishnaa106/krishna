@@ -12,55 +12,48 @@ function randomOp() {
     return ["+", "-", "*", "/"][Math.floor(Math.random() * 4)];
 }
 
-function randomValueOrExpression(depth) {
-    if (depth <= 0 || Math.random() < 0.4) {
-        return getRandomInt(1, 20).toString();
-    }
-    return generateMathExpression(depth - 1);
-}
+function generateMathExpression() {
+    const numTerms = getRandomInt(2, 4); 
+    const expression = [];
 
-function generateMathExpression(depth = 3, maxDepth = 3) {
-    if (depth <= 0) return getRandomInt(1, 20).toString();
+    let current = getRandomInt(1, 100);
+    expression.push(current.toString());
 
-    const left = randomValueOrExpression(depth - 1);
-    let right = randomValueOrExpression(depth - 1);
-    const op = randomOp();
+    for (let i = 1; i < numTerms; i++) {
+        let op = randomOp();
+        let nextNum;
 
-    if (op === "/") {
-        // Try to ensure the denominator (right) isn't zero
-        let rightValue = right;
-        try {
-            // Replace brackets just like in eval
-            const safeRight = right.replace(/{/g, "(").replace(/}/g, ")").replace(/\[/g, "(").replace(/]/g, ")");
-            rightValue = Function(`"use strict"; return (${safeRight});`)();
-        } catch (_) {
-            rightValue = 1;
+        if (op === "/") {
+            const divisors = [];
+            for (let d = 1; d <= 100; d++) {
+                if (d !== 0 && Number.isInteger(current / d)) divisors.push(d);
+            }
+
+            if (divisors.length === 0) {
+                i--;
+                continue; // skip this iteration
+            } else {
+                nextNum = divisors[getRandomInt(0, divisors.length - 1)];
+                expression.push(op);
+                expression.push(nextNum.toString());
+                current = current / nextNum;
+                continue;
+            }
+        } else {
+            nextNum = getRandomInt(1, 100);
+            switch (op) {
+                case "+": current += nextNum; break;
+                case "-": current -= nextNum; break;
+                case "*": current *= nextNum; break;
+            }
         }
 
-        if (rightValue === 0) {
-            // Force right to a non-zero value
-            right = getRandomInt(1, 10).toString();
-        }
+        expression.push(op);
+        expression.push(nextNum.toString());
     }
 
-
-    let expr = `${left} ${op} ${right}`;
-
-    if (depth === 1) {
-        return `(${expr})`; // innermost - parentheses
-    } else if (depth === 2) {
-        // wrap with {}, may include ()
-        return `{${Math.random() < 0.5 ? expr : generateMathExpression(1) + ' ' + op + ' ' + generateMathExpression(1)}}`;
-    } else if (depth === maxDepth) {
-        // outermost - use [] and may include {}, ()
-        const leftSide = generateMathExpression(depth - 1);
-        const rightSide = generateMathExpression(depth - 1);
-        return `[${leftSide} ${op} ${rightSide}]`;
-    }
-
-    return expr;
+    return expression.join(" ");
 }
-
 
 function evaluateMath(expression) {
     const sanitized = expression.replace(/{/g, "(").replace(/}/g, ")")
@@ -96,13 +89,13 @@ module.exports = [
             let expression = "", answer = 0;
             while (true) {
                 try {
-                    expression = generateMathExpression(3);
+                    expression = generateMathExpression();
                     answer = evaluateMath(expression);
                     if (typeof answer === "number" && isFinite(answer)) break;
                 } catch (_) {}
             }
 
-            const formattedAnswer = Math.round(answer * 100) / 100;
+            const formattedAnswer = Number.isInteger(answer) ? answer : Math.round(answer * 100) / 100;
 
             activeMG[groupJID] = {
                 answer: formattedAnswer.toString(),
@@ -111,7 +104,7 @@ module.exports = [
             };
 
             const questionMsg = await sock.sendMessage(groupJID, {
-                text: `🧮 *MATH GAME!*\nSolve:\n> ${expression}\n(Answer up to 2 decimals if needed)`
+                text: `🧮 *MATH GAME!* 🧮\nSolve:\n> ${expression}`
             });
 
             const endGame = async (message = null, quoted = null) => {
@@ -153,7 +146,7 @@ module.exports = [
                         );
                         await endGame();
                     } else {
-                        addPoints(senderJID, -5); // Deduct 5 for wrong
+                        addPoints(senderJID, -5); 
                         await sock.sendMessage(
                             groupJID,
                             {
