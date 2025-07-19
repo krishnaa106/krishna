@@ -34,7 +34,6 @@ module.exports = [
 
           gameLock.setGameActive(chat, "tictactoe");
 
-
           // 🔐 Lock immediately
           activeGames[chat] = { active: true };
 
@@ -64,10 +63,6 @@ module.exports = [
               });
             }
 
-            // Init players
-            pointsManager.initPlayerData(player1, pointsManager.loadPointsData());
-            pointsManager.initPlayerData(player2, pointsManager.loadPointsData());
-
             // Save full game state
             activeGames[chat] = {
               active: true,
@@ -92,49 +87,33 @@ module.exports = [
           const game = activeGames[chat];
           if (!game) return;
 
-          const resetTimeout = () => {
-            if (game.timeout) clearTimeout(game.timeout);
-            game.timeout = setTimeout(async () => {
-              await sock.sendMessage(chat, { text: "_Game ended due to inactivity._" });
-              this.stopGame(sock, chat);
-            }, 60_000);
-          };
-
-          resetTimeout();
-
           const listener = async ({ messages }) => {
             for (const msg of messages) {
-              const fromChat = msg.key.remoteJid;
-              if (fromChat !== chat || !activeGames[chat]?.active) continue;
-
+              if (msg.key.remoteJid !== chat || !msg.message) continue;
               const sender = msg.key.participant || msg.key.remoteJid;
-              const text = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").trim();
-              const move = parseInt(text);
+              if (!game.players.includes(sender)) continue;
 
-              if (isNaN(move) || move < 1 || move > 9) continue;
+              // Only allow the correct player's turn
+              if (game.players[game.turn % 2] !== sender) continue;
 
-              if (sender !== game.players[game.turn % 2]) continue;
-              if (game.board[move - 1] !== " ") {
-                await sock.sendMessage(chat, { text: "_That spot is already taken!_" });
-                continue;
-              }
+              const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim();
+              const move = parseInt(text) - 1;
+              if (isNaN(move) || move < 0 || move > 8 || game.board[move] !== " ") continue;
 
-              game.board[move - 1] = game.symbols[sender];
+              game.board[move] = game.symbols[sender];
               game.turn++;
 
-              await this.showBoard(sock, chat);
-              resetTimeout();
-
-              const winner = this.getWinner(game.board);
-              const draw = this.isDraw(game.board);
+              // Check for win/draw
+              const winner = this.checkWinner(game.board);
+              const draw = game.turn >= 9 && !winner;
 
               if (winner) {
                 const sym = game.board[winner[0]];
                 const winnerJid = Object.keys(game.symbols).find(j => game.symbols[j] === sym);
                 const loserJid = game.players.find(p => p !== winnerJid);
 
-                pointsManager.addPoints(winnerJid, 20);
-                pointsManager.addPoints(loserJid, -20);
+                await pointsManager.addPoints(winnerJid, 20);
+                await pointsManager.addPoints(loserJid, -20);
 
                 await sock.sendMessage(chat, {
                   text: `🏆 @${winnerJid.split("@")[0]} *wins!*\n+20 pts\n@${loserJid.split("@")[0]} -20 pts`,
@@ -150,6 +129,8 @@ module.exports = [
                 });
                 return this.stopGame(sock, chat);
               }
+
+              await this.showBoard(sock, chat);
             }
           };
 
@@ -165,38 +146,49 @@ module.exports = [
           const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
           const board = game.board.map((v, i) => v === " " ? emojis[i] : v);
           const visual =
-            `${board.slice(0, 3).join(" ")}\n${board.slice(3, 6).join(" ")}\n${board.slice(6).join(" ")}`;
+            `${board.slice(0, 3).join(" ")}` +
+            `\n${board.slice(3, 6).join(" ")}` +
+            `\n${board.slice(6).join(" ")}`;
+
+          const p1Points = await pointsManager.getPoints(p1);
+          const p2Points = await pointsManager.getPoints(p2);
 
           await sock.sendMessage(chat, {
             text:
               `🎮 *Tic Tac Toe*\n` +
-              `❌ @${p1.split("@")[0]} (${pointsManager.getPoints(p1)} pts)\n` +
-              `⭕ @${p2.split("@")[0]} (${pointsManager.getPoints(p2)} pts)\n\n` +
+              `❌ @${p1.split("@")[0]} (${p1Points} pts)\n` +
+              `⭕ @${p2.split("@")[0]} (${p2Points} pts)\n\n` +
               `🎯 Turn: @${current.split("@")[0]} (${symbol})\n\n${visual}`,
             mentions: [p1, p2, current],
           });
         },
 
-        getWinner(board) {
-          const combos = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8],
-            [0, 3, 6], [1, 4, 7], [2, 5, 8],
-            [0, 4, 8], [2, 4, 6],
+        checkWinner(board) {
+          const lines = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [2, 4, 6],
           ];
-          return combos.find(([a, b, c]) => board[a] !== " " && board[a] === board[b] && board[a] === board[c]);
-        },
-
-        isDraw(board) {
-          return board.every(cell => cell !== " ");
+          for (const [a, b, c] of lines) {
+            if (board[a] !== " " && board[a] === board[b] && board[a] === board[c]) {
+              return [a, b, c];
+            }
+          }
+          return null;
         },
 
         stopGame(sock, chat) {
           const game = activeGames[chat];
           if (!game) return;
           if (game.listener) sock.ev.off("messages.upsert", game.listener);
-          if (game.timeout) clearTimeout(game.timeout);
+          clearTimeout(game.timeout);
           delete activeGames[chat];
-          gameLock.clearGame(chat); // 🔓 Clear global game lock
-        }
-    }
+          gameLock.clearGame(chat);
+        },
+    },
 ];

@@ -1,37 +1,12 @@
+const { addPoints, getPoints } = require("../games/pointsManager");
+const gameLock = require("../games/gameLock");
 const fs = require("fs");
 const path = require("path");
-const gameLock = require("../games/gameLock");
 
 const wordFilePath = path.join(__dirname, "../media/assets/wordlist.txt");
 
 if (!globalThis.wordGameActive) globalThis.wordGameActive = {};
 const activeWG = globalThis.wordGameActive;
-
-const gameDataPath = path.join(__dirname, "../games");
-if (!fs.existsSync(gameDataPath)) fs.mkdirSync(gameDataPath, { recursive: true });
-const scoreFile = path.join(gameDataPath, "points.json");
-
-function loadPoints() {
-    try {
-        return fs.existsSync(scoreFile) ? JSON.parse(fs.readFileSync(scoreFile, "utf-8")) : {};
-    } catch (e) {
-        console.error("Error reading score DB:", e);
-        return {};
-    }
-}
-
-function savePoints(data) {
-    try {
-        fs.writeFileSync(scoreFile, JSON.stringify(data, null, 2), "utf-8");
-    } catch (e) {
-        console.error("Error saving score DB:", e);
-    }
-}
-
-function initPlayerData(jid, db) {
-    if (!db[jid]) db[jid] = { points: 0, gamesPlayed: 0 };
-    return db;
-}
 
 function getRandomWord() {
     const words = fs.readFileSync(wordFilePath, "utf-8")
@@ -54,8 +29,6 @@ function getMaskedWord(word) {
     const dashes = [];
     while (dashes.length < dashCount && available.length > 0) {
         const i = available.splice(Math.floor(Math.random() * available.length), 1)[0];
-
-        // avoid placing dash next to another dash
         if (dashes.includes(i - 1) || dashes.includes(i + 1)) continue;
         dashes.push(i);
     }
@@ -71,7 +44,6 @@ module.exports = [
         desc: "Word guessing game",
         utility: "game",
         fromMe: false,
-        persistentData: loadPoints(),
 
         async execute(sock, msg, args) {
             const groupJID = msg.key.remoteJid;
@@ -90,7 +62,6 @@ module.exports = [
             }
 
             gameLock.setGameActive(groupJID, "wordGame");
-
 
             const word = getRandomWord();
             const masked = getMaskedWord(word);
@@ -113,20 +84,18 @@ module.exports = [
                 sock.ev.off("messages.upsert", activeWG[groupJID].listener);
                 clearTimeout(activeWG[groupJID].timeout);
                 delete activeWG[groupJID];
-                gameLock.clearGame(groupJID); // 🧹 remove from global lock
-                gameLock.increaseMatchCount("wordGame", groupJID, 30, 10); // 30 matches → 10 min cooldown
+                gameLock.clearGame(groupJID);
+                gameLock.increaseMatchCount("wordGame", groupJID, 30, 10);
                 if (message) {
                     await sock.sendMessage(groupJID, { text: message }, { quoted });
                 }
             };
-
 
             const resetTimeout = async () => {
                 if (activeWG[groupJID].timeout) clearTimeout(activeWG[groupJID].timeout);
                 activeWG[groupJID].timeout = setTimeout(async () => {
                     await endGame(`⌛ *TIME's UP!*\n> The word was: \`*${word.toUpperCase()}*\``, questionMsg);
                 }, 60000);
-
             };
 
             resetTimeout();
@@ -141,11 +110,7 @@ module.exports = [
                     if (!text.startsWith(firstLetter)) continue;
 
                     if (text === word) {
-                        that.persistentData = initPlayerData(senderJID, that.persistentData);
-                        that.persistentData[senderJID].points += 10;
-                        that.persistentData[senderJID].gamesPlayed += 1;
-                        savePoints(that.persistentData);
-
+                        await addPoints(senderJID, 10);
                         await sock.sendMessage(
                             groupJID,
                             {
@@ -154,13 +119,9 @@ module.exports = [
                             },
                             { quoted: newMsg }
                         );
-
                         await endGame();
                     } else {
-                        that.persistentData = initPlayerData(senderJID, that.persistentData);
-                        that.persistentData[senderJID].points -= 5;
-                        savePoints(that.persistentData);
-
+                        await addPoints(senderJID, -5);
                         await sock.sendMessage(
                             groupJID,
                             {
@@ -169,7 +130,6 @@ module.exports = [
                             },
                             { quoted: newMsg }
                         );
-
                         resetTimeout();
                     }
                 }

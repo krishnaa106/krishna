@@ -135,7 +135,7 @@ module.exports = [
 
                     const numericGuess = parseFloat(text);
                     if (numericGuess === formattedAnswer) {
-                        addPoints(senderJID, 5);
+                        await addPoints(senderJID, 5);
                         await sock.sendMessage(
                             groupJID,
                             {
@@ -146,7 +146,7 @@ module.exports = [
                         );
                         await endGame();
                     } else {
-                        addPoints(senderJID, -2); 
+                        await addPoints(senderJID, -2); 
                         await sock.sendMessage(
                             groupJID,
                             {

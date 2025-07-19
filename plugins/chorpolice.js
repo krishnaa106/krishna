@@ -1,14 +1,9 @@
+const { addPoints, getPoints, getTopPlayers } = require("../games/pointsManager");
 const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
 const gameLock = require("../games/gameLock");
 
 if (!globalThis.chorPoliceActiveGames) globalThis.chorPoliceActiveGames = {};
 const activeGames = globalThis.chorPoliceActiveGames;
-
-const dbPath = path.join(__dirname, "../games");
-if (!fs.existsSync(dbPath)) fs.mkdirSync(dbPath, { recursive: true });
-const gameDataPath = path.join(dbPath, "points.json");
 
 const TRIGGERS = {
     askPolice: ["who is police", "police kon", "who is police?", "police?", "police kon hai"],
@@ -24,26 +19,6 @@ const ROLE_MESSAGES = {
     Police: "🔐 YOUR ROLE 🔐\n> Police\nIf officer asks:\nwho is police\nReply with: me"
 };
 
-function loadGameData() {
-    try {
-        if (fs.existsSync(gameDataPath)) {
-            return JSON.parse(fs.readFileSync(gameDataPath, "utf-8"));
-        }
-    } catch (e) { console.error("Error loading DB:", e); }
-    return {};
-}
-
-function saveGameData(data) {
-    try {
-        fs.writeFileSync(gameDataPath, JSON.stringify(data, null, 2), "utf-8");
-    } catch (e) { console.error("Error saving DB:", e); }
-}
-
-function initPlayerData(jid, db) {
-    if (!db[jid]) db[jid] = { points: 0, gamesPlayed: 0 };
-    return db;
-}
-
 function matchesTrigger(message, triggers) {
     const txt = message.toLowerCase().replace(/[^\w\s]/g, '');
     return triggers.some(t => txt.includes(t));
@@ -56,7 +31,6 @@ module.exports = [
         utility: "game",
         fromMe: false,
         gameData: {},
-        persistentData: loadGameData(),
 
         async execute(sock, msg, args) {
             const groupJID = msg.key.remoteJid;
@@ -81,7 +55,7 @@ module.exports = [
                 if (this.gameData[groupJID]?.listener)
                     sock.ev.off("messages.upsert", this.gameData[groupJID].listener);
 
-                this.saveFinalScores(groupJID);
+                await this.saveFinalScores(groupJID);
                 delete this.gameData[groupJID];
                 delete activeGames[groupJID];
                 gameLock.clearGame(groupJID);
@@ -89,13 +63,11 @@ module.exports = [
                 return await sock.sendMessage(groupJID, { text: "_Game stopped! Scores saved._" });
             }
 
-            // only check lock when trying to start
             if (gameLock.isGameActive(groupJID)) {
                 return await sock.sendMessage(groupJID, {
                     text: "_Another game is already running in this chat!_"
                 });
             }
-
 
             activeGames[groupJID] = true;
             gameLock.setGameActive(groupJID, "chorpolice");
@@ -134,29 +106,27 @@ module.exports = [
                     const senderJID = newMsg.key.participant || newMsg.key.remoteJid;
                     const text = (newMsg.message.conversation || newMsg.message.extendedTextMessage?.text || "").toLowerCase();
 
-                    // Leave = stop
                     if (text === "leave" && data.participants[senderJID]) {
                         await sock.sendMessage(groupJID, { text: "_Game stopped by a player!_" });
                         if (data.listener) sock.ev.off("messages.upsert", data.listener);
-                        this.saveFinalScores(groupJID);
+                        await this.saveFinalScores(groupJID);
                         delete this.gameData[groupJID];
                         delete activeGames[groupJID];
                         gameLock.clearGame(groupJID);
                         return;
                     }
 
-                    // Join game
                     if (text === "join" && Object.keys(data.participants).length < 4) {
                         if (!data.participants[senderJID]) {
-                            this.persistentData = initPlayerData(senderJID, this.persistentData);
                             data.participants[senderJID] = { jid: senderJID };
                             data.scores[senderJID] = 0;
 
                             const joined = Object.keys(data.participants).length;
                             const totalPlayers = 4;
                             const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"];
+                            const userPoints = await getPoints(senderJID);
                             await sock.sendMessage(groupJID, {
-                                text: `✅ @${senderJID.split("@")[0]} joined!\n> Total points: ${this.persistentData[senderJID].points}\n> ${joined}/${totalPlayers}`,
+                                text: `✅ @${senderJID.split("@")[0]} joined!\n> Total points: ${userPoints}\n> ${joined}/${totalPlayers}`,
                                 mentions: [senderJID]
                             });
                             await sock.sendMessage(groupJID, {
@@ -177,14 +147,11 @@ module.exports = [
             sock.ev.on("messages.upsert", listener);
         },
 
-        saveFinalScores(groupJID) {
+        async saveFinalScores(groupJID) {
             const scores = this.gameData[groupJID]?.scores || {};
             for (const [jid, delta] of Object.entries(scores)) {
-                this.persistentData = initPlayerData(jid, this.persistentData);
-                this.persistentData[jid].points += delta;
-                this.persistentData[jid].gamesPlayed += 1;
+                await addPoints(jid, delta);
             }
-            saveGameData(this.persistentData);
         },
 
         getUltraRandomIndex(len) {
@@ -310,7 +277,7 @@ module.exports = [
             });
 
             await this.showScores(sock, groupJID);
-            this.saveFinalScores(groupJID);
+            await this.saveFinalScores(groupJID);
             if (this.gameData[groupJID].listener)
                 sock.ev.off("messages.upsert", this.gameData[groupJID].listener);
             delete this.gameData[groupJID];
@@ -324,7 +291,7 @@ module.exports = [
             const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
 
             for (const [jid, scr] of sorted) {
-                const total = this.persistentData[jid]?.points || 0;
+                const total = await getPoints(jid);
                 text += `@${jid.split("@")[0]}: ${total}\n`;
             }
 
@@ -337,19 +304,14 @@ module.exports = [
         utility: "game",
         fromMe: false,
         async execute(sock, msg) {
-            const gameData = loadGameData();
-            const top = Object.entries(gameData)
-                .sort((a, b) => b[1].points - a[1].points)
-                .slice(0, 10);
-
+            const top = await getTopPlayers(10);
             let text = "🏁 TOP 10 PLAYERS 🏁\n\n";
-            top.forEach(([jid, data], i) => {
-                text += `${i + 1}. @${jid.split("@")[0]}\n> Points: ${data.points}\n> Games Played: ${data.gamesPlayed}\n\n`;
+            top.forEach((data, i) => {
+                text += `${i + 1}. @${data.jid.split("@")[0]}\n> Points: ${data.points}\n> Games Played: ${data.games_played}\n\n`;
             });
-
             await sock.sendMessage(msg.key.remoteJid, {
                 text: text.trim(),
-                mentions: top.map(([jid]) => jid)
+                mentions: top.map(data => data.jid)
             });
         }
     },
@@ -358,28 +320,18 @@ module.exports = [
         desc: "Show user points",
         utility: "game",
         fromMe: false,
-
         async execute(sock, msg) {
-            const gameData = loadGameData();
-
             const targetJID =
                 msg.message?.extendedTextMessage?.contextInfo?.participant ||
-                msg.key.participant || // fallback to sender in group
-                msg.key.remoteJid;     // fallback to sender in PM
-
-            const userData = gameData[targetJID];
-
-            if (!userData) {
-                return await sock.sendMessage(msg.key.remoteJid, {text: "_User has no data_",},);}
-
+                msg.key.participant ||
+                msg.key.remoteJid;
+            const points = await getPoints(targetJID);
             await sock.sendMessage(
                 msg.key.remoteJid,
                 {
-                    text: `• Points: *${userData.points}*\n` +
-                        `• Games Played: *${userData.gamesPlayed}*`,
+                    text: `• Points: *${points}*`,
                 },
             );
         }
     }
 ];
-//final one

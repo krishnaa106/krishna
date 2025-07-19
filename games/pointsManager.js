@@ -1,66 +1,66 @@
 // games/pointsManager.js
-const fs = require("fs");
-const path = require("path");
+const { Client } = require("pg");
 
-const dbPath = path.join(__dirname, "../games");
-if (!fs.existsSync(dbPath)) {
-    fs.mkdirSync(dbPath, { recursive: true });
-}
-const pointsDataPath = path.join(dbPath, "points.json");
+const getClient = () => new Client({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-function loadPointsData() {
-    try {
-        if (fs.existsSync(pointsDataPath)) {
-            return JSON.parse(fs.readFileSync(pointsDataPath, "utf-8"));
-        }
-    } catch (error) {
-        console.error("Error loading points data:", error);
-    }
-    return {};
-}
-
-function savePointsData(data) {
-    try {
-        fs.writeFileSync(pointsDataPath, JSON.stringify(data, null, 2), "utf-8");
-    } catch (error) {
-        console.error("Error saving points data:", error);
-    }
+// Initialize the table (run once at startup)
+async function initTable() {
+  const client = getClient();
+  await client.connect();
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS points (
+      jid STRING PRIMARY KEY,
+      points INT DEFAULT 0,
+      games_played INT DEFAULT 0
+    );
+  `);
+  await client.end();
 }
 
-function initPlayerData(jid, pointsData) {
-    if (!pointsData[jid]) {
-        pointsData[jid] = { points: 0, gamesPlayed: 0 };
-    }
-    return pointsData;
+// Add or update player points
+async function addPoints(jid, pointsToAdd) {
+  const client = getClient();
+  await client.connect();
+  await client.query(`
+    INSERT INTO points (jid, points, games_played)
+    VALUES ($1, $2, 1)
+    ON CONFLICT (jid)
+    DO UPDATE SET
+      points = points.points + $2,
+      games_played = points.games_played + 1;
+  `, [jid, pointsToAdd]);
+  const res = await client.query('SELECT points FROM points WHERE jid = $1', [jid]);
+  await client.end();
+  return res.rows[0]?.points || 0;
 }
 
-function addPoints(jid, pointsToAdd) {
-    const pointsData = loadPointsData();
-    pointsData[jid] = pointsData[jid] || { points: 0, gamesPlayed: 0 };
-    pointsData[jid].points += pointsToAdd;
-    pointsData[jid].gamesPlayed += 1;
-    savePointsData(pointsData);
-    return pointsData[jid].points;
+// Get player points
+async function getPoints(jid) {
+  const client = getClient();
+  await client.connect();
+  const res = await client.query('SELECT points FROM points WHERE jid = $1', [jid]);
+  await client.end();
+  return res.rows[0]?.points || 0;
 }
 
-function getPoints(jid) {
-    const pointsData = loadPointsData();
-    return pointsData[jid]?.points || 0;
-}
-
-function getTopPlayers(limit = 10) {
-    const pointsData = loadPointsData();
-    return Object.entries(pointsData)
-        .sort((a, b) => b[1].points - a[1].points)
-        .slice(0, limit)
-        .map(([jid, data]) => ({ jid, points: data.points, gamesPlayed: data.gamesPlayed }));
+// Get top players
+async function getTopPlayers(limit = 10) {
+  const client = getClient();
+  await client.connect();
+  const res = await client.query(
+    'SELECT jid, points, games_played FROM points ORDER BY points DESC LIMIT $1',
+    [limit]
+  );
+  await client.end();
+  return res.rows;
 }
 
 module.exports = {
-    loadPointsData,
-    savePointsData,
-    initPlayerData,
-    addPoints,
-    getPoints,
-    getTopPlayers
+  initTable,
+  addPoints,
+  getPoints,
+  getTopPlayers
 };
