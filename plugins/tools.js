@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { extractViewOnceMedia, toNum } = require("../lib");
 const storePath = path.join(__dirname, "..", "media", "tmp", "storedMessages.json");
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 function loadStoredMessages() {
   try {
@@ -87,36 +88,54 @@ module.exports = [
     },
     {
         name: "save",
-        scut: "sv,/",
-        desc: "Silently forward the replied message to bot itself",
+        scut: "sv,/,💗",
+        desc: "Silently forward the replied message or status to bot itself",
         utility: "tools",
         fromMe: true,
-      
+
         execute: async (client, msg) => {
-          try {
-            const ctx = msg.message?.extendedTextMessage?.contextInfo;
-            const quoted = ctx?.quotedMessage;
-            const id = ctx?.stanzaId;
-      
-            if (!quoted || !id) return;
-    
-            const botJid = client.user?.id || client.user?.jid;
-          if (!botJid) return;
-      
-            await client.sendMessage(botJid, {
-              forward: {
-                key: {
-                  fromMe: false,
-                  remoteJid: msg.key.remoteJid,
-                  id
-                },
-                message: quoted
-              }
-            });
-      
-          } catch (err) {
-            console.error("❌ .save error:", err);
-          }
+            try {
+                const ctx = msg.message?.extendedTextMessage?.contextInfo;
+                const quoted = ctx?.quotedMessage;
+                const id = ctx?.stanzaId;
+
+                if (!quoted || !id) return;
+
+                const botJid = client.user?.id || client.user?.jid;
+                if (!botJid) return;
+
+                // If it's an image or video from a status, download & send
+                if (quoted.imageMessage || quoted.videoMessage) {
+                    const type = quoted.imageMessage ? "imageMessage" : "videoMessage";
+                    const stream = await downloadContentFromMessage(quoted[type], type.replace("Message", ""));
+                    
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+                    const fileType = quoted.imageMessage ? "image" : "video";
+                    const options = quoted.imageMessage
+                        ? { image: buffer }
+                        : { video: buffer, mimetype: quoted.videoMessage.mimetype };
+
+                    await client.sendMessage(botJid, options);
+                    return;
+                }
+
+                // Otherwise, forward the text/message
+                await client.sendMessage(botJid, {
+                    forward: {
+                        key: {
+                            fromMe: false,
+                            remoteJid: msg.key.remoteJid,
+                            id
+                        },
+                        message: quoted
+                    }
+                });
+
+            } catch (err) {
+                console.error("❌ .save error:", err);
+            }
         }
     },
     {
@@ -368,5 +387,73 @@ module.exports = [
                 });
             }
         }
+    },
+    {
+        name: "track",
+        desc: "Track and log raw incoming messages",
+        scut: "trk",
+        utility: "tools",
+        fromMe: true,
+
+
+        execute: async (sock, msg, args) => {
+        const jid = msg.key.remoteJid;
+        const trackId = `track-${jid}`;
+
+        if (!args || args.length === 0) {
+            return await sock.sendMessage(jid, {
+            text: "_Usage: .track <number> or .track stop_",
+            });
+        }
+
+        const input = args[0].toLowerCase();
+
+        if (input === "stop") {
+            sock.unregisterTracker?.(trackId);
+            return await sock.sendMessage(jid, { text: "_Tracking stopped._" });
+        }
+
+        const limit = parseInt(input);
+        if (isNaN(limit) || limit <= 0) {
+            return await sock.sendMessage(jid, {
+            text: "_Usage: .track <number> or .track stop_",
+            });
+        }
+
+        let count = 0;
+        const ownJid = sock.user?.id;
+
+        await sock.sendMessage(jid, {
+            text: `_Tracking ${limit} incoming messages..._`,
+        });
+
+        sock.registerTracker?.(
+            trackId,
+
+            async (incoming) =>
+            incoming.key.remoteJid === jid && !incoming.key.fromMe,
+
+            async (_sock, incoming) => {
+            count++;
+
+            if (ownJid) {
+                await sock.sendMessage(ownJid, {
+                text:
+                    `📥 [${jid}] Message #${count}:\n\n` +
+                    '```json\n' +
+                    JSON.stringify(incoming, null, 2) +
+                    '\n```',
+                });
+            }
+
+            if (count >= limit) {
+                sock.unregisterTracker(trackId);
+                await sock.sendMessage(jid, {
+                text: `_Tracking complete. (${limit} messages logged)_`,
+                });
+            }
+            }
+        );
+        },
     },
 ];

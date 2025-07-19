@@ -192,7 +192,7 @@ module.exports = [
         name: "pt",
         desc: "Search Pinterest and convert all image results to stickers",
         utility: "sticker",
-        fromMe: false,
+        fromMe: true,
 
         async execute(sock, msg, args) {
         const chat = msg.key.remoteJid;

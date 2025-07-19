@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
 require("dotenv").config({ path: "./config.env" });
-const {cleanup, commandExists, saveEnv, dlMedia, starMsg} = require("../lib");
+const {cleanup, commandExists, saveEnv, dlMedia, starMsg, updateEnv } = require("../lib");
 
 const CONFIG_PATH = "./config.env";
 const permissionsPath = path.join(__dirname, "../db/permissions.json");
@@ -23,31 +23,32 @@ module.exports = [
         desc: "Switch between public and private mode",
         utility: "owner",
         fromMe: true,
-    
+
         execute: async (client, msg, args) => {
             try {
                 const sudoUsers = process.env.SUDO ? process.env.SUDO.split(",") : [];
                 const senderNumber = msg.key.participant?.split("@")[0] || msg.key.remoteJid.split("@")[0];
                 const isSudo = sudoUsers.includes(senderNumber);
-    
+
                 if (!msg.key.fromMe && !isSudo) {
                     await client.sendMessage(msg.key.remoteJid, { text: "_Only the bot owner or sudo users can use this!_" });
-                    return { isFallback: true };
+                    return;
                 }
-    
+
                 if (!args[0]) {
-                    await client.sendMessage(msg.key.remoteJid, { 
-                        text: `_Currently : ${process.env.BOT_MODE.toUpperCase()}_\n_Usage : .mode public/private_`
+                    return client.sendMessage(msg.key.remoteJid, { 
+                        text: "*USAGE:*\n> .mode public/private"
                     });
-                    return { isFallback: true };
                 }
-    
-                if (args[0] !== "public" && args[0] !== "private") {
-                    return client.sendMessage(msg.key.remoteJid, { text: "_Usage: .mode public/private_" });
+
+                const mode = args[0].toLowerCase();
+                if (mode !== "public" && mode !== "private") {
+                    return client.sendMessage(msg.key.remoteJid, { text: "*USAGE:*\n> .mode public/private" });
                 }
-    
-                process.env.BOT_MODE = args[0];
-                client.sendMessage(msg.key.remoteJid, { text: `✅ Bot mode set to *${args[0].toUpperCase()}*` });
+
+                updateEnv("BOT_MODE", mode);
+                return client.sendMessage(msg.key.remoteJid, { text: `✅ Bot mode set to *${mode.toUpperCase()}*` });
+
             } catch (err) {
                 console.error("❌ Error switching bot mode:", err);
                 return client.sendMessage(msg.key.remoteJid, { text: "_Failed to switch bot mode!_" });
@@ -75,7 +76,7 @@ module.exports = [
     
             if (!key || value === undefined) {
                 await client.sendMessage(msg.key.remoteJid, { text: "*Usage:*\n> `.setvar KEY=VALUE`\nor\nReply to a text with `.setvar KEY_NAME`" });
-                return { isFallback: true };
+
             }
     
             let envData = fs.existsSync(CONFIG_PATH) ? fs.readFileSync(CONFIG_PATH, "utf8").trim() : "";
@@ -111,7 +112,7 @@ module.exports = [
             const key = args[0]?.trim().toUpperCase();
             if (!key) {
                 await client.sendMessage(msg.key.remoteJid, { text: "*Usage:*\n`.delvar KEY_NAME`" });
-                return { isFallback: true };
+
             }
 
             let envData = fs.existsSync(CONFIG_PATH) ? fs.readFileSync(CONFIG_PATH, "utf8").trim() : "";
@@ -143,7 +144,7 @@ module.exports = [
     
             if (!key || value === undefined) {
                 await client.sendMessage(msg.key.remoteJid, { text: "_Usage: .evar KEY=VALUE or reply to a text with .evar KEY_" });
-                return { isFallback: true };
+
             }
     
             let envData = fs.existsSync(CONFIG_PATH) ? fs.readFileSync(CONFIG_PATH, "utf8").trim() : "";
@@ -151,7 +152,7 @@ module.exports = [
     
             if (!lines.some(line => line.startsWith(`${key}=`))) {
                 await client.sendMessage(msg.key.remoteJid, { text: `❌ *${key}* not found.` });
-                return { isFallback: true };
+
             }
     
             lines = lines.map(line => (line.startsWith(`${key}=`) ? `${key}=${value}` : line));
@@ -171,7 +172,7 @@ module.exports = [
         execute: async (client, msg) => {
             if (!msg.message.extendedTextMessage) {
                 await client.sendMessage(msg.key.remoteJid, { text: "_Reply to a message to use this command._" });
-                return { isFallback: true };
+
             }
             
             const senderJid = msg.message.extendedTextMessage.contextInfo.participant;
@@ -197,7 +198,7 @@ module.exports = [
             const senderJid = msg.message.extendedTextMessage?.contextInfo.participant;
             if (!senderJid) {
                 await client.sendMessage(msg.key.remoteJid, { text: "_Reply to a message to use this command._" });
-                return { isFallback: true };
+
             }
             const senderNumber = senderJid.split("@")[0];
             
@@ -431,7 +432,7 @@ module.exports = [
             }
         }
     },
-        {
+    {
         name: "deny",
         desc: "Deny a JID or command from public access",
         utility: "owner",
@@ -562,7 +563,7 @@ module.exports = [
             });
         }
     },
-      {
+    {
         name: "pp",
         scut: "ppic",
         desc: "Update your profile picture (reply to image)",

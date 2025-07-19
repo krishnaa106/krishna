@@ -114,7 +114,7 @@ module.exports = [
                 clearTimeout(activeWG[groupJID].timeout);
                 delete activeWG[groupJID];
                 gameLock.clearGame(groupJID); // 🧹 remove from global lock
-                gameLock.increaseMatchCount("wordGame", groupJID, 30, 20); // 30 matches → 20 min cooldown
+                gameLock.increaseMatchCount("wordGame", groupJID, 30, 10); // 30 matches → 10 min cooldown
                 if (message) {
                     await sock.sendMessage(groupJID, { text: message }, { quoted });
                 }

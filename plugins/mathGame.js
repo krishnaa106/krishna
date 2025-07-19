@@ -112,7 +112,7 @@ module.exports = [
                 clearTimeout(activeMG[groupJID].timeout);
                 delete activeMG[groupJID];
                 gameLock.clearGame(groupJID);
-                gameLock.increaseMatchCount("mathGame", groupJID, 30, 20);
+                gameLock.increaseMatchCount("mathGame", groupJID, 30, 10);
                 if (message) await sock.sendMessage(groupJID, { text: message }, { quoted });
             };
 
@@ -135,22 +135,22 @@ module.exports = [
 
                     const numericGuess = parseFloat(text);
                     if (numericGuess === formattedAnswer) {
-                        addPoints(senderJID, 10);
+                        addPoints(senderJID, 5);
                         await sock.sendMessage(
                             groupJID,
                             {
-                                text: `✅ *CORRECT!*\n> @${senderJID.split("@")[0]} answered: \`${formattedAnswer}\`\n+10 Points!`,
+                                text: `✅ *CORRECT!*\n> @${senderJID.split("@")[0]} answered: \`${formattedAnswer}\`\n+5 Points!`,
                                 mentions: [senderJID],
                             },
                             { quoted: newMsg }
                         );
                         await endGame();
                     } else {
-                        addPoints(senderJID, -5); 
+                        addPoints(senderJID, -2); 
                         await sock.sendMessage(
                             groupJID,
                             {
-                                text: `❌ *WRONG!*\n> Guess by: @${senderJID.split("@")[0]}\n-5 Points.`,
+                                text: `❌ *WRONG!*\n> Guess by: @${senderJID.split("@")[0]}\n-2 Points.`,
                                 mentions: [senderJID],
                             },
                             { quoted: newMsg }
