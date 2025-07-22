@@ -456,4 +456,106 @@ module.exports = [
         );
         },
     },
+    {
+      name: "ginfo",
+      desc: "Fetch group info from JID or invite link (name, description, invite link, profile picture)",
+      utility: "group",
+      fromMe: true,
+  
+      execute: async (sock, msg, args) => {
+        try {
+          const input = args[0]?.trim() || msg.key.remoteJid;
+  
+          if (!input) {
+            return sock.sendMessage(msg.key.remoteJid, { text: "_Usage: .ginfo <group-jid or invite-link>_" });
+          }
+  
+          let jid = input;
+  
+          // Check if input is an invite link and extract the code
+          if (input.includes("chat.whatsapp.com/")) {
+            const inviteCode = input.split("chat.whatsapp.com/")[1]?.split("?")[0];
+            if (!inviteCode) {
+              return sock.sendMessage(msg.key.remoteJid, { text: "_Invalid invite link format._" });
+            }
+  
+            try {
+              // Get group info from invite code
+              const groupInfo = await sock.groupGetInviteInfo(inviteCode);
+              jid = groupInfo.id;
+            } catch (error) {
+              return sock.sendMessage(msg.key.remoteJid, { text: "_Invalid or expired invite link._" });
+            }
+          }
+  
+          // Validate if it's a group JID
+          if (!jid.endsWith("@g.us")) {
+            return sock.sendMessage(msg.key.remoteJid, { text: "_Provided input is not a valid group._" });
+          }
+  
+          // Fetch group metadata
+          const metadata = await sock.groupMetadata(jid);
+          const groupName = metadata.subject || "No Name";
+          const groupDesc = metadata.desc || "No Description";
+          const groupId = metadata.id || jid;
+          const participantsCount = metadata.participants?.length || 0;
+          
+          // Check if bot is admin - fix the admin detection
+          let isGroupAdmin = false;
+          try {
+            // Get bot's user ID
+            const botId = sock.user.id;
+            // Check if bot is in participants and is admin
+            isGroupAdmin = metadata.participants?.some(p => p.id === botId && (p.admin === 'admin' || p.admin === 'superadmin')) || false;
+          } catch (error) {
+            console.log("Could not determine admin status:", error);
+          }
+  
+          // Fetch profile picture URL
+          let ppUrl = null;
+          try {
+            ppUrl = await sock.profilePictureUrl(jid, "image");
+          } catch {
+            ppUrl = null;
+          }
+  
+          // Fetch invite link
+          let inviteLink = "N/A";
+          try {
+            // Try to get invite code regardless of admin status first
+            const inviteCode = await sock.groupInviteCode(jid);
+            inviteLink = `https://chat.whatsapp.com/${inviteCode}`;
+          } catch (error) {
+            // If it fails, then check if it's due to not being admin
+            if (error.message?.includes('not-authorized') || error.message?.includes('forbidden')) {
+              inviteLink = "_Not admin_";
+            } else {
+              inviteLink = "_Error fetching invite link_";
+            }
+          }
+  
+          // Compose caption
+          const caption = `*GROUP INFO*\n\n` +
+            `*ID:* ${groupId}\n` +
+            `*Name:* ${groupName}\n` +
+            `*Description:* ${groupDesc}\n` +
+            `*Participants:* ${participantsCount}\n` +
+            `*Invite Link:* ${inviteLink}`;
+  
+          if (ppUrl) {
+            await sock.sendMessage(msg.key.remoteJid, {
+              image: { url: ppUrl },
+              caption
+            });
+          } else {
+            await sock.sendMessage(msg.key.remoteJid, {
+              text: caption + "\n*Profile Picture:* None"
+            });
+          }
+        } catch (error) {
+          console.error("❌ Group Info Plugin Error:", error);
+          await sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to fetch group info." });
+        }
+      }
+    },
 ];
