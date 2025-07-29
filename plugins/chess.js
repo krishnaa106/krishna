@@ -9,31 +9,26 @@ const TMP_DIR = path.join(__dirname, "../media/tmp");
 
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
-// Board constants
 const BOARD_WIDTH = 1152;
 const BOARD_HEIGHT = 1664;
 const CELL_SIZE = 128;
-const OFFSET_X = 64;   // Board X offset
-const OFFSET_Y = 320;  // Board Y offset
+const OFFSET_X = 64;
+const OFFSET_Y = 320;
 
-// Persistent storage
 if (!globalThis.chessActiveGames) globalThis.chessActiveGames = {};
 const activeGames = globalThis.chessActiveGames;
 
-// Map piece type
 function pieceToFile(piece) {
     const map = { p: "pawn", r: "rook", n: "knight", b: "bishop", q: "queen", k: "king" };
     return path.join(ASSET_DIR, `${map[piece.type]}-${piece.color}.svg`);
 }
 
-/** Render Chess Image with captured pieces */
 async function renderChessImage(chess, captured) {
     const boardPath = path.join(ASSET_DIR, "board.svg");
     let img = sharp(boardPath).resize(BOARD_WIDTH, BOARD_HEIGHT);
 
     const layers = [];
 
-    // Add pieces
     const board = chess.board();
     for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
@@ -48,17 +43,15 @@ async function renderChessImage(chess, captured) {
         }
     }
 
-    // Captured pieces - Black (top)
-    let blackOffset = 70; // starting X position
+    let blackOffset = 70;
     for (const p of captured.black) {
         const piecePath = pieceToFile(p);
         if (fs.existsSync(piecePath)) {
             layers.push({ input: piecePath, top: 64, left: blackOffset });
-            blackOffset += 70; // spacing
+            blackOffset += 70;
         }
     }
 
-    // Captured pieces - White (bottom)
     let whiteOffset = 70; 
     for (const p of captured.white) {
         const piecePath = pieceToFile(p);
@@ -76,7 +69,6 @@ function getChatId(msg) {
     return msg.key.remoteJid;
 }
 
-/** Start game */
 async function startGame(sock, chatId, player1, player2) {
     const chess = new Chess();
     const whitePlayer = Math.random() < 0.5 ? player1 : player2;
@@ -95,7 +87,6 @@ async function startGame(sock, chatId, player1, player2) {
     registerMoveTracker(sock, chatId);
 }
 
-/** Send chess board image */
 async function sendBoard(sock, chatId, game, extraText = "") {
     const buffer = await renderChessImage(game.chess, game.captured);
     const tmpPath = path.join(TMP_DIR, `chess-${Date.now()}.png`);
@@ -110,7 +101,6 @@ async function sendBoard(sock, chatId, game, extraText = "") {
     fs.unlinkSync(tmpPath);
 }
 
-/** Track moves */
 function registerMoveTracker(sock, chatId) {
     sock.registerTracker(
         `chess_${chatId}`,
@@ -134,7 +124,6 @@ function registerMoveTracker(sock, chatId) {
                 return;
             }
 
-            // Track captured piece
             if (move.captured) {
                 game.captured[move.color === "w" ? "black" : "white"].push({
                     type: move.captured,
@@ -142,7 +131,6 @@ function registerMoveTracker(sock, chatId) {
                 });
             }
 
-            // Switch turn
             game.turn = game.turn === "w" ? "b" : "w";
             const nextPlayer = game.colors[game.turn];
             const nextColor = game.turn === "w" ? "W" : "B";
@@ -194,8 +182,13 @@ module.exports = [
             let player1 = sender;
             let player2 = null;
 
-            if (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length) {
-                player2 = msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
+            const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
+            if (mentions.length >= 2) {
+                player1 = mentions[0];
+                player2 = mentions[1];
+            } else if (mentions.length === 1) {
+                player2 = mentions[0];
             } else if (msg.message.extendedTextMessage?.contextInfo?.participant) {
                 player2 = msg.message.extendedTextMessage.contextInfo.participant;
             }

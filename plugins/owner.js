@@ -1,10 +1,11 @@
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
-require("dotenv").config({ path: "./config.env" });
-const {cleanup, commandExists, saveEnv, dlMedia, starMsg, updateEnv } = require("../lib");
+require("dotenv").config({ path: CONFIG_PATH });
+const {cleanup, saveEnv, dlMedia, starMsg, updateEnv } = require("../lib");
 
-const CONFIG_PATH = "../config.env";
+const CONFIG_PATH = path.join(__dirname, "../config.env");
+
 
 module.exports = [
     
@@ -161,7 +162,7 @@ module.exports = [
                 await client.sendMessage(msg.key.remoteJid, { text: "_Reply to a message to use this command._" });
 
             }
-            
+
             const senderJid = msg.message.extendedTextMessage.contextInfo.participant;
             const senderNumber = senderJid.split("@")[0];
             
