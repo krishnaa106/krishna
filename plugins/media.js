@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const sharp = require("sharp");
+const ffmpeg = require("fluent-ffmpeg");
 const { randomUUID } = require("crypto");
 const { exec } = require("child_process");
 const { 
@@ -255,92 +256,131 @@ module.exports = [
         utility: "media",
         fromMe: false,
         execute: async (sock, msg, args) => {
-          try {
-            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-            if (!quoted) return sock.sendMessage(msg.key.remoteJid, { text: "_Reply to a media message_" });
-    
-            const mediaTypes = ['imageMessage', 'videoMessage', 'documentMessage', 'stickerMessage'];
-            const mediaType = mediaTypes.find(type => quoted[type]);
-            if (!mediaType) return sock.sendMessage(msg.key.remoteJid, { text: "_Reply to an image, video, or document_" });
-    
-            const rotation = args[0]?.toLowerCase();
-            if (!rotation || !['left', 'right', '180'].includes(rotation))
-              return sock.sendMessage(msg.key.remoteJid, { text: "_Usage: .rotate <left/right/180>_" });
-    
-            const mediaData = await dlMedia({ message: { [mediaType]: quoted[mediaType] } }, sock, "both");
-            if (!mediaData) return sock.sendMessage(msg.key.remoteJid, { text: "_Failed to download media_" });
-    
-            const { path: tempInput, ext: fileExtension } = mediaData;
-            const ext = fileExtension.startsWith('.') ? fileExtension : `.${fileExtension}`;
-            const tempOutput = path.join(TMP_DIR, `${randomUUID()}_rotated${ext}`);
-    
             try {
-              if (mediaType === 'videoMessage' || (mediaType === 'documentMessage' && fileExtension.match(/\.(mp4|avi|mov|mkv|webm)$/i))) {
-                // Rotate video using ffmpeg
-                const ffmpeg = require("fluent-ffmpeg");
-                let command = ffmpeg(tempInput);
-                switch (rotation) {
-                  case 'left': command = command.videoFilters('transpose=2'); break;
-                  case 'right': command = command.videoFilters('transpose=1'); break;
-                  case '180': command = command.videoFilters('transpose=2,transpose=2'); break;
-                  default: throw new Error('Invalid rotation');
+                const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+                if (!quoted) return sock.sendMessage(msg.key.remoteJid, { text: "_Reply to a media message_" });
+
+                const mediaTypes = ['imageMessage', 'videoMessage', 'documentMessage', 'stickerMessage'];
+                const mediaType = mediaTypes.find(type => quoted[type]);
+                if (!mediaType) return sock.sendMessage(msg.key.remoteJid, { text: "_Reply to an image, video, or document_" });
+
+                const rotation = args[0]?.toLowerCase();
+                if (!rotation || !['left', 'right', '180'].includes(rotation))
+                    return sock.sendMessage(msg.key.remoteJid, { text: "_Usage: .rotate <left/right/180>_" });
+
+                const mediaData = await dlMedia({ message: { [mediaType]: quoted[mediaType] } }, sock, "both");
+                if (!mediaData) return sock.sendMessage(msg.key.remoteJid, { text: "_Failed to download media_" });
+
+                const { path: tempInput, ext: fileExtension } = mediaData;
+                const ext = fileExtension.startsWith('.') ? fileExtension : `.${fileExtension}`;
+                const tempOutput = path.join(TMP_DIR, `${randomUUID()}_rotated${ext}`);
+
+                try {
+                    // HANDLE ANIMATED STICKERS
+                    if (mediaType === 'stickerMessage' && quoted.stickerMessage?.isAnimated) {
+                        const tempMp4 = path.join(TMP_DIR, `${randomUUID()}_anim.mp4`);
+                        const rotatedMp4 = path.join(TMP_DIR, `${randomUUID()}_rotated.mp4`);
+                        const finalWebp = path.join(TMP_DIR, `${randomUUID()}_final.webp`);
+
+                        await webpToMp4(tempInput, tempMp4); // Convert webp to mp4
+
+                        // Rotate the video
+                        let ff = ffmpeg(tempMp4);
+                        switch (rotation) {
+                            case 'left': ff = ff.videoFilters('transpose=2'); break;
+                            case 'right': ff = ff.videoFilters('transpose=1'); break;
+                            case '180': ff = ff.videoFilters('transpose=2,transpose=2'); break;
+                        }
+                        await new Promise((resolve, reject) => {
+                            ff.output(rotatedMp4).on('end', resolve).on('error', reject).run();
+                        });
+
+                        // Convert rotated mp4 back to webp (sticker)
+                        await new Promise((resolve, reject) => {
+                            ffmpeg(rotatedMp4)
+                                .outputOptions(["-vcodec libwebp", "-loop 0", "-preset default"])
+                                .output(finalWebp)
+                                .on('end', resolve)
+                                .on('error', reject)
+                                .run();
+                        });
+
+                        const stickerWithExif = await addExif(finalWebp);
+                        const stickerData = fs.readFileSync(stickerWithExif);
+                        await sock.sendMessage(msg.key.remoteJid, { sticker: stickerData });
+
+                        cleanupFile(tempMp4);
+                        cleanupFile(rotatedMp4);
+                        cleanupFile(finalWebp);
+                        cleanupFile(stickerWithExif);
+                        cleanupFile(tempInput);
+                        return;
+                    }
+
+                    // VIDEO ROTATION
+                    if (mediaType === 'videoMessage' || (mediaType === 'documentMessage' && fileExtension.match(/\.(mp4|avi|mov|mkv|webm)$/i))) {
+                        let command = ffmpeg(tempInput);
+                        switch (rotation) {
+                            case 'left': command = command.videoFilters('transpose=2'); break;
+                            case 'right': command = command.videoFilters('transpose=1'); break;
+                            case '180': command = command.videoFilters('transpose=2,transpose=2'); break;
+                        }
+                        await new Promise((resolve, reject) => {
+                            command.output(tempOutput).on('end', resolve).on('error', reject).run();
+                        });
+                        const videoData = Buffer.from(fs.readFileSync(tempOutput));
+                        const messageOptions = { video: videoData };
+                        if (mediaType === 'documentMessage') {
+                            const originalDoc = quoted.documentMessage;
+                            messageOptions.document = videoData;
+                            messageOptions.mimetype = originalDoc.mimetype || 'video/mp4';
+                            messageOptions.fileName = originalDoc.fileName || `rotated_video${fileExtension}`;
+                            delete messageOptions.video;
+                        }
+                        await sock.sendMessage(msg.key.remoteJid, messageOptions);
+                        cleanupFile(tempOutput);
+                    } 
+                    // IMAGE/STICKER ROTATION
+                    else if (mediaType === 'imageMessage' || mediaType === 'stickerMessage' || (mediaType === 'documentMessage' && fileExtension.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i))) {
+                        let sharpInstance = sharp(tempInput);
+                        switch (rotation) {
+                            case 'left': sharpInstance = sharpInstance.rotate(-90); break;
+                            case 'right': sharpInstance = sharpInstance.rotate(90); break;
+                            case '180': sharpInstance = sharpInstance.rotate(180); break;
+                        }
+                        await sharpInstance.toFile(tempOutput);
+                        if (mediaType === 'stickerMessage') {
+                            const stickerWithExif = await addExif(tempOutput);
+                            const stickerData = fs.readFileSync(stickerWithExif);
+                            await sock.sendMessage(msg.key.remoteJid, { sticker: stickerData });
+                            cleanupFile(stickerWithExif);
+                        } else {
+                            const imageData = Buffer.from(fs.readFileSync(tempOutput));
+                            const messageOptions = { image: imageData };
+                            if (mediaType === 'documentMessage') {
+                                const originalDoc = quoted.documentMessage;
+                                messageOptions.document = imageData;
+                                messageOptions.mimetype = originalDoc.mimetype || 'image/jpeg';
+                                messageOptions.fileName = originalDoc.fileName || `rotated_image${fileExtension}`;
+                                delete messageOptions.image;
+                            }
+                            await sock.sendMessage(msg.key.remoteJid, messageOptions);
+                        }
+                        cleanupFile(tempOutput);
+                    } else {
+                        return sock.sendMessage(msg.key.remoteJid, { text: "_Unsupported file type_" });
+                    }
+                    cleanupFile(tempInput);
+                } catch (error) {
+                    console.error("Rotate Error:", error);
+                    await sock.sendMessage(msg.key.remoteJid, { text: "_Failed to rotate media_" });
+                    cleanupFile(tempInput);
+                    cleanupFile(tempOutput);
                 }
-                await new Promise((resolve, reject) => {
-                  command.output(tempOutput).on('end', resolve).on('error', reject).run();
-                });
-                const videoData = Buffer.from(fs.readFileSync(tempOutput));
-                const messageOptions = { video: videoData };
-                if (mediaType === 'documentMessage') {
-                  const originalDoc = quoted.documentMessage;
-                  messageOptions.document = videoData;
-                  messageOptions.mimetype = originalDoc.mimetype || 'video/mp4';
-                  messageOptions.fileName = originalDoc.fileName || `rotated_video${fileExtension}`;
-                  delete messageOptions.video;
-                }
-                await sock.sendMessage(msg.key.remoteJid, messageOptions);
-                cleanupFile(tempOutput);
-              } else if (mediaType === 'imageMessage' || mediaType === 'stickerMessage' || (mediaType === 'documentMessage' && fileExtension.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i))) {
-                // Rotate image using sharp
-                let sharpInstance = sharp(tempInput);
-                switch (rotation) {
-                  case 'left': sharpInstance = sharpInstance.rotate(-90); break;
-                  case 'right': sharpInstance = sharpInstance.rotate(90); break;
-                  case '180': sharpInstance = sharpInstance.rotate(180); break;
-                  default: throw new Error('Invalid rotation');
-                }
-                await sharpInstance.toFile(tempOutput);
-                if (mediaType === 'stickerMessage') {
-                  const stickerWithExif = await addExif(tempOutput);
-                  const stickerData = fs.readFileSync(stickerWithExif);
-                  await sock.sendMessage(msg.key.remoteJid, { sticker: stickerData });
-                  cleanupFile(stickerWithExif);
-                } else {
-                  const imageData = Buffer.from(fs.readFileSync(tempOutput));
-                  const messageOptions = { image: imageData };
-                  if (mediaType === 'documentMessage') {
-                    const originalDoc = quoted.documentMessage;
-                    messageOptions.document = imageData;
-                    messageOptions.mimetype = originalDoc.mimetype || 'image/jpeg';
-                    messageOptions.fileName = originalDoc.fileName || `rotated_image${fileExtension}`;
-                    delete messageOptions.image;
-                  }
-                  await sock.sendMessage(msg.key.remoteJid, messageOptions);
-                }
-                cleanupFile(tempOutput);
-              } else {
-                return sock.sendMessage(msg.key.remoteJid, { text: "_Unsupported file type_" });
-              }
-              cleanupFile(tempInput);
             } catch (error) {
-              console.error("Rotate Error:", error);
-              await sock.sendMessage(msg.key.remoteJid, { text: "_Failed to rotate media_" });
-              cleanupFile(tempInput);
-              cleanupFile(tempOutput);
+                console.error("Rotate Plugin Error:", error);
+                await sock.sendMessage(msg.key.remoteJid, { text: "_Failed to process rotation_" });
             }
-          } catch (error) {
-            console.error("Rotate Plugin Error:", error);
-            await sock.sendMessage(msg.key.remoteJid, { text: "_Failed to process rotation_" });
-          }
         }
     },
     {

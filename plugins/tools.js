@@ -1,6 +1,8 @@
 const fs = require("fs");
+const axios = require("axios");
+const crypto = require("crypto");
 const path = require("path");
-const { extractViewOnceMedia, toNum } = require("../lib");
+const { extractViewOnceMedia, toNum, predictFonts, fetchFontDetails, dlMedia } = require("../lib");
 const storePath = path.join(__dirname, "..", "media", "tmp", "storedMessages.json");
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
@@ -558,4 +560,60 @@ module.exports = [
         }
       }
     },
+        {
+        name: "findfont",
+        desc: "Detect fonts from an image (Dafont + Source links)",
+        utility: "tools",
+        fromMe: false,
+
+        execute: async (sock, msg) => {
+            try {
+                const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
+                if (!msg.message?.imageMessage && !quoted) {
+                    await sock.sendMessage(msg.key.remoteJid, { text: "_Reply to an image or send an image with caption_" });
+                    return;
+                }
+
+                // Download the media (reply or direct)
+                const mediaPath = await dlMedia(msg, sock, "path");
+                if (!mediaPath) {
+                    await sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to download media." });
+                    return;
+                }
+
+                await sock.sendMessage(msg.key.remoteJid, { text: "⏳ *Uploading the image...*" });
+
+                // Step 1: Predict fonts
+                const styleIds = await predictFonts(mediaPath);
+                if (!styleIds.length) {
+                    await sock.sendMessage(msg.key.remoteJid, { text: "❌ No fonts detected." });
+                    fs.unlinkSync(mediaPath);
+                    return;
+                }
+
+                // Step 2: Fetch font details
+                const fonts = await fetchFontDetails(styleIds);
+                if (!fonts.length) {
+                    await sock.sendMessage(msg.key.remoteJid, { text: "❌ Could not fetch font details." });
+                    fs.unlinkSync(mediaPath);
+                    return;
+                }
+
+                // Step 3: Build response with Dafont links and Source links
+                let response = `*\`Detected Fonts:\`*\n\n`;
+                fonts.forEach((font, idx) => {
+                    const dafontUrl = `https://www.dafont.com/search.php?q=${encodeURIComponent(font.name)}`;
+                    response += `*${idx + 1}. ${font.name}*\n_Family:_ ${font.family}\n_Foundry:_ ${font.foundry}\n_Free:_ ${dafontUrl}\n_Source:_ ${font.sourceUrl}\n\n`;
+                });
+
+                await sock.sendMessage(msg.key.remoteJid, { text: response }, { quoted: msg });
+                fs.unlinkSync(mediaPath);
+
+            } catch (error) {
+                console.error("❌ Error in fontdetect command:", error);
+                await sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to detect fonts." });
+            }
+        }
+    }
 ];

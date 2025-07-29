@@ -79,7 +79,6 @@ module.exports = [
             return client.sendMessage(msg.key.remoteJid, { text: `✅ *${key}* set to:\n\`\`\`${value}\`\`\`` });
         }
     },    
-
     {
         name: "allvar",
         desc: "Show all environment variables",
@@ -91,7 +90,6 @@ module.exports = [
             await client.sendMessage(msg.key.remoteJid, { text: `\`\`\`\n${envData}\n\`\`\`` });
         }
     },
-
     {
         name: "delvar",
         desc: "Delete an environment variable",
@@ -152,7 +150,6 @@ module.exports = [
             return { isFallback: false };
         }
     },
-    
     {
         name: "setsudo",
         desc: "Add a number to SUDO list",
@@ -230,56 +227,39 @@ module.exports = [
             return { isFallback: true };
         }
     },
+
     {
-    name: "clear",
-    scut: "clc, clearchat",
-    desc: "Attempts to clear the chat, or deletes the command message",
-    utility: "owner",
-    fromMe: true,
+        name: "clear",
+        scut: "clc",
+        desc: "Clear all messages in the current chat",
+        utility: "owner",
+        fromMe: true,
 
-    async execute(sock, msg) {
-        const timestamp =
-            msg.messageTimestamp?.low ||
-            msg.messageTimestamp?.toNumber?.() ||
-            msg.messageTimestamp ||
-            msg.timestamp ||
-            Math.floor(Date.now() / 1000);
-
-        try {
-            // Try full clear first
-            await sock.chatModify(
-                {
-                    clear: {
-                        messages: []
-                    }
-                },
-                msg.key.remoteJid
-            );
-            await sock.sendMessage(msg.key.remoteJid, { text: "_Chat cleared successfully!_" });
-        } catch (e) {
-            console.warn("⚠️ Full clear failed, falling back:", e.message);
+        execute: async (client, msg) => {
             try {
-                // Fallback: delete just the command message
-                await sock.chatModify(
-                    {
-                        delete: true,
-                        lastMessages: [
-                            {
-                                key: msg.key,
-                                messageTimestamp: timestamp
-                            }
-                        ]
-                    },
+                // Ensure only owner or sudo users can use this
+                const sudoUsers = process.env.SUDO ? process.env.SUDO.split(",") : [];
+                const senderNumber = msg.key.participant?.split("@")[0] || msg.key.remoteJid.split("@")[0];
+                const isSudo = sudoUsers.includes(senderNumber);
+
+                if (!msg.key.fromMe && !isSudo) {
+                    await client.sendMessage(msg.key.remoteJid, { text: "_Only the bot owner or sudo users can use this!_" });
+                    return;
+                }
+
+                // Clear chat by sending chatModify
+                await client.chatModify(
+                    { delete: true, lastMessages: [{ key: msg.key, messageTimestamp: msg.messageTimestamp || msg.timestamp }] },
                     msg.key.remoteJid
                 );
-                await sock.sendMessage(msg.key.remoteJid, { text: "_Cleared (fallback)_" });
+
+                await client.sendMessage(msg.key.remoteJid, { text: "_cleared_" });
             } catch (err) {
-                console.error("❌ Delete failed:", err.message);
-                await sock.sendMessage(msg.key.remoteJid, { text: "_❌ Couldn't clear or delete._" });
+                console.error("❌ Error clearing chat:", err);
+                await client.sendMessage(msg.key.remoteJid, { text: "❌ _Failed to clear the chat!_" });
             }
         }
-    }
-},
+    },    
     {
         name: "reboot",
         desc: "Reboot the bot",
@@ -345,6 +325,34 @@ module.exports = [
         }
     },
     {
+        name: "profilepic",
+        scut: "pp",
+        desc: "Change your profile picture using a replied image or image caption",
+        utility: "owner",
+        fromMe: true,
+
+        execute: async (sock, msg) => {
+            // Get the image as a buffer
+            const buffer = await dlMedia(msg, sock, "buffer");
+
+            if (!buffer) {
+                return sock.sendMessage(msg.key.remoteJid, {
+                    text: "_Reply to an image_"
+                });
+            }
+
+            try {
+                await sock.updateProfilePicture(
+                    msg.key.participant || msg.key.remoteJid,
+                    { stream: buffer }
+                );
+            } catch (err) {
+                console.error("❌ Error updating profile picture:", err);
+                await sock.sendMessage(msg.key.remoteJid, { text: "❌ Failed to update profile picture." });
+            }
+        }
+    },
+    {
         name: "rmpp",
         scut: "rpp",
         desc: "Remove your profile picture",
@@ -392,7 +400,7 @@ module.exports = [
     },
         {
         name: "star",
-        desc: "⭐ Star a replied message",
+        desc: "Star a replied message",
         type: "owner",
         fromMe: false,
 
@@ -415,7 +423,7 @@ module.exports = [
     },
     {
         name: "unstar",
-        desc: "✩ Unstar a replied message",
+        desc: "Unstar a replied message",
         type: "owner",
         fromMe: false,
 

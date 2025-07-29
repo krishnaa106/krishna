@@ -13,47 +13,31 @@ function randomOp() {
 }
 
 function generateMathExpression() {
-    const numTerms = getRandomInt(2, 4); 
-    const expression = [];
+    let a = getRandomInt(10, 99); // First 2-digit number
+    let b = getRandomInt(10, 99); // Second 2-digit number
+    let op = randomOp();
 
-    let current = getRandomInt(1, 100);
-    expression.push(current.toString());
-
-    for (let i = 1; i < numTerms; i++) {
-        let op = randomOp();
-        let nextNum;
-
-        if (op === "/") {
-            const divisors = [];
-            for (let d = 1; d <= 100; d++) {
-                if (d !== 0 && Number.isInteger(current / d)) divisors.push(d);
-            }
-
-            if (divisors.length === 0) {
-                i--;
-                continue; // skip this iteration
-            } else {
-                nextNum = divisors[getRandomInt(0, divisors.length - 1)];
-                expression.push(op);
-                expression.push(nextNum.toString());
-                current = current / nextNum;
-                continue;
-            }
-        } else {
-            nextNum = getRandomInt(1, 100);
-            switch (op) {
-                case "+": current += nextNum; break;
-                case "-": current -= nextNum; break;
-                case "*": current *= nextNum; break;
-            }
+    if (op === "/") {
+        // Ensure division with no remainder
+        let divisors = [];
+        for (let i = 2; i <= a; i++) {
+            if (a % i === 0 && i <= 99) divisors.push(i);
         }
 
-        expression.push(op);
-        expression.push(nextNum.toString());
+        if (divisors.length === 0) {
+            // fallback to addition if no divisor found
+            op = "+";
+        } else {
+            b = divisors[getRandomInt(0, divisors.length - 1)];
+        }
+    } else if (op === "-") {
+        // Ensure no negative answers (b <= a)
+        if (b > a) [a, b] = [b, a];
     }
 
-    return expression.join(" ");
+    return `${a} ${op} ${b}`;
 }
+
 
 function evaluateMath(expression) {
     const sanitized = expression.replace(/{/g, "(").replace(/}/g, ")")

@@ -1,9 +1,1 @@
-{
-  "120363373457147115@g.us": {
-    "enabled": true,
-    "action": "warn",
-    "allow": [],
-    "deny": [],
-    "warns": {}
-  }
-}
+{}

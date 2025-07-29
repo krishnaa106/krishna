@@ -1,0 +1,217 @@
+<svg width="1152" height="1664" viewBox="0 0 1152 1664" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1152" height="1664" fill="#F5F5DC"/>
+  
+  <!-- Captured pieces areas -->
+  <!-- Top captured pieces area (Black) -->
+  <rect x="64" y="0" width="1024" height="256" fill="#E8E8E8" stroke="#CCC" stroke-width="2"/>
+  <text x="576" y="135" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#666">Black Captured Pieces</text>
+  
+  <!-- Bottom captured pieces area (White) -->
+  <rect x="64" y="1408" width="1024" height="256" fill="#E8E8E8" stroke="#CCC" stroke-width="2"/>
+  <text x="576" y="1543" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#666">White Captured Pieces</text>
+  
+  <!-- Chess board squares -->
+  <!-- Row 8 -->
+  <rect x="64" y="320" width="128" height="128" fill="#EEEED2"/>
+  <rect x="192" y="320" width="128" height="128" fill="#769656"/>
+  <rect x="320" y="320" width="128" height="128" fill="#EEEED2"/>
+  <rect x="448" y="320" width="128" height="128" fill="#769656"/>
+  <rect x="576" y="320" width="128" height="128" fill="#EEEED2"/>
+  <rect x="704" y="320" width="128" height="128" fill="#769656"/>
+  <rect x="832" y="320" width="128" height="128" fill="#EEEED2"/>
+  <rect x="960" y="320" width="128" height="128" fill="#769656"/>
+  
+  <!-- Row 7 -->
+  <rect x="64" y="448" width="128" height="128" fill="#769656"/>
+  <rect x="192" y="448" width="128" height="128" fill="#EEEED2"/>
+  <rect x="320" y="448" width="128" height="128" fill="#769656"/>
+  <rect x="448" y="448" width="128" height="128" fill="#EEEED2"/>
+  <rect x="576" y="448" width="128" height="128" fill="#769656"/>
+  <rect x="704" y="448" width="128" height="128" fill="#EEEED2"/>
+  <rect x="832" y="448" width="128" height="128" fill="#769656"/>
+  <rect x="960" y="448" width="128" height="128" fill="#EEEED2"/>
+  
+  <!-- Row 6 -->
+  <rect x="64" y="576" width="128" height="128" fill="#EEEED2"/>
+  <rect x="192" y="576" width="128" height="128" fill="#769656"/>
+  <rect x="320" y="576" width="128" height="128" fill="#EEEED2"/>
+  <rect x="448" y="576" width="128" height="128" fill="#769656"/>
+  <rect x="576" y="576" width="128" height="128" fill="#EEEED2"/>
+  <rect x="704" y="576" width="128" height="128" fill="#769656"/>
+  <rect x="832" y="576" width="128" height="128" fill="#EEEED2"/>
+  <rect x="960" y="576" width="128" height="128" fill="#769656"/>
+  
+  <!-- Row 5 -->
+  <rect x="64" y="704" width="128" height="128" fill="#769656"/>
+  <rect x="192" y="704" width="128" height="128" fill="#EEEED2"/>
+  <rect x="320" y="704" width="128" height="128" fill="#769656"/>
+  <rect x="448" y="704" width="128" height="128" fill="#EEEED2"/>
+  <rect x="576" y="704" width="128" height="128" fill="#769656"/>
+  <rect x="704" y="704" width="128" height="128" fill="#EEEED2"/>
+  <rect x="832" y="704" width="128" height="128" fill="#769656"/>
+  <rect x="960" y="704" width="128" height="128" fill="#EEEED2"/>
+  
+  <!-- Row 4 -->
+  <rect x="64" y="832" width="128" height="128" fill="#EEEED2"/>
+  <rect x="192" y="832" width="128" height="128" fill="#769656"/>
+  <rect x="320" y="832" width="128" height="128" fill="#EEEED2"/>
+  <rect x="448" y="832" width="128" height="128" fill="#769656"/>
+  <rect x="576" y="832" width="128" height="128" fill="#EEEED2"/>
+  <rect x="704" y="832" width="128" height="128" fill="#769656"/>
+  <rect x="832" y="832" width="128" height="128" fill="#EEEED2"/>
+  <rect x="960" y="832" width="128" height="128" fill="#769656"/>
+  
+  <!-- Row 3 -->
+  <rect x="64" y="960" width="128" height="128" fill="#769656"/>
+  <rect x="192" y="960" width="128" height="128" fill="#EEEED2"/>
+  <rect x="320" y="960" width="128" height="128" fill="#769656"/>
+  <rect x="448" y="960" width="128" height="128" fill="#EEEED2"/>
+  <rect x="576" y="960" width="128" height="128" fill="#769656"/>
+  <rect x="704" y="960" width="128" height="128" fill="#EEEED2"/>
+  <rect x="832" y="960" width="128" height="128" fill="#769656"/>
+  <rect x="960" y="960" width="128" height="128" fill="#EEEED2"/>
+  
+  <!-- Row 2 -->
+  <rect x="64" y="1088" width="128" height="128" fill="#EEEED2"/>
+  <rect x="192" y="1088" width="128" height="128" fill="#769656"/>
+  <rect x="320" y="1088" width="128" height="128" fill="#EEEED2"/>
+  <rect x="448" y="1088" width="128" height="128" fill="#769656"/>
+  <rect x="576" y="1088" width="128" height="128" fill="#EEEED2"/>
+  <rect x="704" y="1088" width="128" height="128" fill="#769656"/>
+  <rect x="832" y="1088" width="128" height="128" fill="#EEEED2"/>
+  <rect x="960" y="1088" width="128" height="128" fill="#769656"/>
+  
+  <!-- Row 1 -->
+  <rect x="64" y="1216" width="128" height="128" fill="#769656"/>
+  <rect x="192" y="1216" width="128" height="128" fill="#EEEED2"/>
+  <rect x="320" y="1216" width="128" height="128" fill="#769656"/>
+  <rect x="448" y="1216" width="128" height="128" fill="#EEEED2"/>
+  <rect x="576" y="1216" width="128" height="128" fill="#769656"/>
+  <rect x="704" y="1216" width="128" height="128" fill="#EEEED2"/>
+  <rect x="832" y="1216" width="128" height="128" fill="#769656"/>
+  <rect x="960" y="1216" width="128" height="128" fill="#EEEED2"/>
+  
+  <!-- Board border -->
+  <rect x="64" y="320" width="1024" height="1024" fill="none" stroke="#333" stroke-width="3"/>
+  
+  <!-- Rank labels (8-1) on the left -->
+  <defs>
+    <style>
+      .rank-label { 
+        font-family: Arial, sans-serif; 
+        font-size: 48px; 
+        font-weight: bold; 
+        text-anchor: middle; 
+        dominant-baseline: central;
+      }
+      .file-label { 
+        font-family: Arial, sans-serif; 
+        font-size: 48px; 
+        font-weight: bold; 
+        text-anchor: middle; 
+        dominant-baseline: central;
+      }
+      .label-outline {
+        fill: none;
+        stroke: white;
+        stroke-width: 4;
+        stroke-linejoin: round;
+      }
+      .label-text {
+        fill: black;
+      }
+    </style>
+  </defs>
+  
+  <!-- Rank 8 -->
+  <text x="32" y="384" class="rank-label label-outline">8</text>
+  <text x="32" y="384" class="rank-label label-text">8</text>
+  
+  <!-- Rank 7 -->
+  <text x="32" y="512" class="rank-label label-outline">7</text>
+  <text x="32" y="512" class="rank-label label-text">7</text>
+  
+  <!-- Rank 6 -->
+  <text x="32" y="640" class="rank-label label-outline">6</text>
+  <text x="32" y="640" class="rank-label label-text">6</text>
+  
+  <!-- Rank 5 -->
+  <text x="32" y="768" class="rank-label label-outline">5</text>
+  <text x="32" y="768" class="rank-label label-text">5</text>
+  
+  <!-- Rank 4 -->
+  <text x="32" y="896" class="rank-label label-outline">4</text>
+  <text x="32" y="896" class="rank-label label-text">4</text>
+  
+  <!-- Rank 3 -->
+  <text x="32" y="1024" class="rank-label label-outline">3</text>
+  <text x="32" y="1024" class="rank-label label-text">3</text>
+  
+  <!-- Rank 2 -->
+  <text x="32" y="1152" class="rank-label label-outline">2</text>
+  <text x="32" y="1152" class="rank-label label-text">2</text>
+  
+  <!-- Rank 1 -->
+  <text x="32" y="1280" class="rank-label label-outline">1</text>
+  <text x="32" y="1280" class="rank-label label-text">1</text>
+  
+  <!-- File labels (a-h) at the bottom -->
+  <!-- File a -->
+  <text x="128" y="1376" class="file-label label-outline">a</text>
+  <text x="128" y="1376" class="file-label label-text">a</text>
+  
+  <!-- File b -->
+  <text x="256" y="1376" class="file-label label-outline">b</text>
+  <text x="256" y="1376" class="file-label label-text">b</text>
+  
+  <!-- File c -->
+  <text x="384" y="1376" class="file-label label-outline">c</text>
+  <text x="384" y="1376" class="file-label label-text">c</text>
+  
+  <!-- File d -->
+  <text x="512" y="1376" class="file-label label-outline">d</text>
+  <text x="512" y="1376" class="file-label label-text">d</text>
+  
+  <!-- File e -->
+  <text x="640" y="1376" class="file-label label-outline">e</text>
+  <text x="640" y="1376" class="file-label label-text">e</text>
+  
+  <!-- File f -->
+  <text x="768" y="1376" class="file-label label-outline">f</text>
+  <text x="768" y="1376" class="file-label label-text">f</text>
+  
+  <!-- File g -->
+  <text x="896" y="1376" class="file-label label-outline">g</text>
+  <text x="896" y="1376" class="file-label label-text">g</text>
+  
+  <!-- File h -->
+  <text x="1024" y="1376" class="file-label label-outline">h</text>
+  <text x="1024" y="1376" class="file-label label-text">h</text>
+  
+  <!-- Grid lines for captured pieces areas -->
+  <!-- Top captured pieces grid lines -->
+  <g stroke="#CCC" stroke-width="1" opacity="0.5">
+    <!-- Vertical lines for top area -->
+    <line x1="192" y1="0" x2="192" y2="256"/>
+    <line x1="320" y1="0" x2="320" y2="256"/>
+    <line x1="448" y1="0" x2="448" y2="256"/>
+    <line x1="576" y1="0" x2="576" y2="256"/>
+    <line x1="704" y1="0" x2="704" y2="256"/>
+    <line x1="832" y1="0" x2="832" y2="256"/>
+    <line x1="960" y1="0" x2="960" y2="256"/>
+    <!-- Horizontal line for top area -->
+    <line x1="64" y1="128" x2="1088" y2="128"/>
+    
+    <!-- Vertical lines for bottom area -->
+    <line x1="192" y1="1408" x2="192" y2="1664"/>
+    <line x1="320" y1="1408" x2="320" y2="1664"/>
+    <line x1="448" y1="1408" x2="448" y2="1664"/>
+    <line x1="576" y1="1408" x2="576" y2="1664"/>
+    <line x1="704" y1="1408" x2="704" y2="1664"/>
+    <line x1="832" y1="1408" x2="832" y2="1664"/>
+    <line x1="960" y1="1408" x2="960" y2="1664"/>
+    <!-- Horizontal line for bottom area -->
+    <line x1="64" y1="1536" x2="1088" y2="1536"/>
+  </g>
+</svg>
