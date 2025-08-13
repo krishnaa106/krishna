@@ -1,0 +1,25 @@
+#!/usr/bin/env node
+
+const { ManjiBot } = require('./lib/bot');
+
+console.log(`
+███╗   ███╗ █████╗ ███╗   ██╗     ██╗██╗██████╗  ██████╗ ████████╗
+████╗ ████║██╔══██╗████╗  ██║     ██║██║██╔══██╗██╔═══██╗╚══██╔══╝
+██╔████╔██║███████║██╔██╗ ██║     ██║██║██████╔╝██║   ██║   ██║   
+██║╚██╔╝██║██╔══██║██║╚██╗██║██   ██║██║██╔══██╗██║   ██║   ██║   
+██║ ╚═╝ ██║██║  ██║██║ ╚████║╚█████╔╝██║██████╔╝╚██████╔╝   ██║   
+╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚════╝ ╚═╝╚═════╝  ╚═════╝    ╚═╝   
+                                                                    
+                    🤖 ManjiBot v1.0 - Ready to serve!
+`);
+
+const bot = new ManjiBot();
+bot.start().catch(console.error);
+
+process.on('SIGINT', async () => {
+    await bot.stop();
+    process.exit(0);
+});
+
+process.on('uncaughtException', () => {});
+process.on('unhandledRejection', () => {});
