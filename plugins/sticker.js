@@ -1,24 +1,13 @@
-const { 
-    csImg,
-    toWebp,
-    TMP_DIR,
-    dlMedia,
-    cleanup,
-    addExif,
-    getExif,
-    cropVid,
-    downloadUrl,
-    extractStkZip,
-    processZipStk,
-    getStickerSize,
-    getVideoDimensions,
-} = require("../lib");
-const fs = require("fs"); 
-const path = require("path");
-const { randomUUID } = require("crypto");
-
-
-
+const fs = require("fs");
+const { extractStkZip, processZipStk, cleanup } = require("../lib");
+const {
+    createSticker,
+    modifySticker,
+    createCroppedSticker,
+    extractStickerExif,
+    createStickersFromUrls,
+    processWebpFolder
+} = require("../lib/sticker");
 
 let isZipStopped = false;
 
@@ -30,30 +19,23 @@ module.exports = [
         utility: "sticker",
         fromMe: false,
         execute: async (client, msg) => {
-            let mediaFile = null;
-
             try {
-                mediaFile = await dlMedia(msg, client, "path");
-                if (!mediaFile) {
+                const stickerBuffer = await createSticker(client, msg);
+                if (!stickerBuffer) {
                     return client.sendMessage(msg.key.remoteJid, {
                         text: "_Reply to an image or short video!_"
                     });
                 }
 
-                const stickerFile = await toWebp(mediaFile);
-                await addExif(stickerFile);
-
                 await client.sendMessage(msg.key.remoteJid, {
-                    sticker: fs.readFileSync(stickerFile)
+                    sticker: stickerBuffer
                 }, { quoted: msg });
 
-                fs.unlinkSync(mediaFile);
-                fs.unlinkSync(stickerFile);
-
             } catch (err) {
-                console.error("❌ Error in .e sticker:", err);
-
-                if (mediaFile && fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile);
+                console.error("❌ Error in sticker command:", err);
+                await client.sendMessage(msg.key.remoteJid, {
+                    text: "_Failed to create sticker!_"
+                });
             }
         }
     },
@@ -65,32 +47,27 @@ module.exports = [
         utility: "sticker",
         fromMe: false,
         execute: async (client, msg, args) => {
-            let tempFile;
-
             try {
-                tempFile = await dlMedia(msg, client, "path");
-                if (!tempFile) {
+                const fullArg = args.join(" ").trim();
+                const [pack, author] = fullArg.split(",").map(x => x?.trim() || undefined);
+
+                const stickerBuffer = await modifySticker(client, msg, pack, author);
+                if (!stickerBuffer) {
                     await client.sendMessage(msg.key.remoteJid, {
                         text: "_Reply to a sticker!_"
                     });
                     return { isFallback: true };
                 }
 
-                const fullArg = args.join(" ").trim();
-                const [pack, author] = fullArg.split(",").map(x => x?.trim() || undefined);
-
-                const newStickerPath = await addExif(tempFile, pack, author);
-
                 await client.sendMessage(msg.key.remoteJid, {
-                    sticker: fs.readFileSync(newStickerPath)
+                    sticker: stickerBuffer
                 }, { quoted: msg });
 
-                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-
             } catch (err) {
-                console.error("❌ Error in .take command:", err);
-
-                if (tempFile && fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+                console.error("❌ Error in take command:", err);
+                await client.sendMessage(msg.key.remoteJid, {
+                    text: "_Failed to modify sticker!_"
+                });
             }
         }
     },

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
-require("dotenv").config({ path: CONFIG_PATH });
+require("dotenv").config({ path: "../config.env" });
 const {cleanup, saveEnv, dlMedia, starMsg, updateEnv } = require("../lib");
 
 const CONFIG_PATH = path.join(__dirname, "../config.env");

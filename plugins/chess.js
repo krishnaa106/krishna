@@ -3,6 +3,7 @@ const path = require("path");
 const sharp = require("sharp");
 const { Chess } = require("chess.js");
 const gameLock = require("../games/gameLock");
+const { isSudoOrBot } = require("../lib");
 
 const ASSET_DIR = path.join(__dirname, "../media/assets");
 const TMP_DIR = path.join(__dirname, "../media/tmp");
@@ -102,6 +103,8 @@ async function sendBoard(sock, chatId, game, extraText = "") {
 }
 
 function registerMoveTracker(sock, chatId) {
+    const game = activeGames[chatId];
+
     sock.registerTracker(
         `chess_${chatId}`,
         async (msg) => {
@@ -109,12 +112,11 @@ function registerMoveTracker(sock, chatId) {
             const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim().toLowerCase();
             if (!/^[a-h][1-8][a-h][1-8]$/.test(text)) return false;
             const sender = msg.key.participant || msg.key.remoteJid;
-            return sender === activeGames[chatId].colors[activeGames[chatId].turn];
+            return sender === game.colors[game.turn];
         },
         async (sock, msg) => {
             const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim().toLowerCase();
             const sender = msg.key.participant || msg.key.remoteJid;
-            const game = activeGames[chatId];
             const from = text.slice(0, 2);
             const to = text.slice(2, 4);
 
@@ -135,7 +137,7 @@ function registerMoveTracker(sock, chatId) {
             const nextPlayer = game.colors[game.turn];
             const nextColor = game.turn === "w" ? "W" : "B";
 
-            let caption = `✅ Move: ${text} by @${sender.split("@")[0]}\nNext move (${nextColor}): @${nextPlayer.split("@")[0]}`;
+            let caption = `✅ Move: ${text} by @${sender.split("@")[0]}\nNext move (${nextColor}): @${nextPlayer.split("@")[0]}\n\n_Type 'resign' to quit._`;
             if (game.chess.isCheckmate()) {
                 caption = `♟️ Checkmate! @${sender.split("@")[0]} wins!`;
                 endGame(sock, chatId);
@@ -147,12 +149,29 @@ function registerMoveTracker(sock, chatId) {
             await sendBoard(sock, chatId, game, caption);
         }
     );
+
+    sock.registerTracker(
+        `chess_resign_${chatId}`,
+        async (msg) => {
+            if (!msg.message || !activeGames[chatId]) return false;
+            const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim().toLowerCase();
+            const sender = msg.key.participant || msg.key.remoteJid;
+            return text === "resign" && game.players.includes(sender);
+        },
+        async (sock, msg) => {
+            const sender = msg.key.participant || msg.key.remoteJid;
+            const opponent = game.players.find(p => p !== sender);
+            await sock.sendMessage(chatId, { text: `🏳️ @${sender.split("@")[0]} resigned.\n@${opponent.split("@")[0]} wins!`, mentions: game.players });
+            endGame(sock, chatId);
+        }
+    );
 }
 
-/** End game */
+
 function endGame(sock, chatId) {
     sock.unregisterTracker(`chess_${chatId}`);
     sock.unregisterTracker(`chess_join_${chatId}`);
+    sock.unregisterTracker(`chess_resign_${chatId}`);
     gameLock.clearGame(chatId);
     delete activeGames[chatId];
 }
@@ -162,17 +181,25 @@ module.exports = [
         name: "chess",
         desc: "Start a chess game",
         utility: "game",
-        fromMe: true,
+        fromMe: false,
         async execute(sock, msg, args) {
             const chatId = getChatId(msg);
             const sender = msg.key.participant || chatId;
 
             if (args[0] === "stop") {
-                if (activeGames[chatId]) {
-                    endGame(sock, chatId);
-                    return sock.sendMessage(chatId, { text: "_Chess game stopped._" });
+                const game = activeGames[chatId];
+                if (!game) {
+                    return sock.sendMessage(chatId, { text: "_No active chess game in this chat._" });
                 }
-                return sock.sendMessage(chatId, { text: "_No active chess game in this chat._" });
+
+                const sender = msg.key.participant || chatId;
+
+                if (!isSudoOrBot(sender, sock)) {
+                    return sock.sendMessage(chatId, { text: "_Only sudo users or the bot can stop the game._" });
+                }
+
+                endGame(sock, chatId);
+                return sock.sendMessage(chatId, { text: "_Chess game force-stopped by sudo user._" });
             }
 
             if (gameLock.isGameActive(chatId)) {
