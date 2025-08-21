@@ -1,0 +1,364 @@
+{
+  "plugins": {
+    "mode": {
+      "desc": "Switch between public and private bot modes.",
+      "current": "Current Mode: *{0}*.",
+      "example": "Usage: .mode public | .mode private",
+      "status": "Bot mode updated to *{0}*."
+    },
+    "status": {
+      "desc": "Check bot status, uptime, memory and system info.",
+      "template": "_Bot Status_\n\nUptime: {0}\nMode: {1}\nPrefix: {2}\nSudo Users: {3}\n\nMemory Usage:\nRSS: {4} MB\nHeap Used: {5} MB\nHeap Total: {6} MB\nExternal: {7} MB\n\nSystem Info:\nPlatform: {8}\nNode.js: {9}\nPID: {10}\n\nConnection: {11}"
+    },
+    "setvar": {
+      "desc": "Set configuration variable",
+      "usage": "_Usage: .setvar KEY=VALUE_\n_Example: .setvar PREFIX=!_",
+      "success": "{0}",
+      "failed": "{0}"
+    },
+    "getvar": {
+      "desc": "Get configuration variable",
+      "usage": "_Usage: .getvar KEY_\n_Example: .getvar PREFIX_",
+      "result": "```{0} = {1}```",
+      "notFound": "_Variable {0} not found or is null_"
+    },
+    "delvar": {
+      "desc": "Delete configuration variable",
+      "usage": "_Usage: .delvar KEY_\n_Example: .delvar TEMP_VAR_",
+      "success": "✅ {0}",
+      "failed": "❌ {0}"
+    },
+    "allvar": {
+      "desc": "Show all configuration variables",
+      "title": "*All Configuration Variables:*\n\n{0}",
+      "empty": "_No configuration variables found_"
+    },
+    "sudo": {
+      "desc": "Manage sudo users",
+      "list": "*Sudo Users:*\n{0}",
+      "empty": "_No sudo users configured_",
+      "usage": "_Usage:_\n_.sudo_ - List sudo users\n_.sudo add_ - Add sudo users\n_.sudo remove_ - Remove sudo users",
+      "addSuccess": "Added {0} as sudo users",
+      "addFailed": "_No new sudo users added (may already exist)_",
+      "removeSuccess": "Removed {0} from sudo users",
+      "removeFailed": "_No sudo users removed (may not exist)_",
+      "noUsers": "_Reply or mention users to add/remove as sudo_"
+    },
+    "restart": {
+      "desc": "Restart the bot",
+      "message": "_Restarting bot..._"
+    },
+    "eval": {
+      "desc": "Evaluate JavaScript code (dangerous)",
+      "usage": "_Usage: .eval <code>_\n_Example: .eval 2 + 2_",
+      "result": "```{0}```",
+      "error": "_Error: {0}_"
+    },
+    "shutdown": {
+      "desc": "Shutdown the bot",
+      "message": "_Shutting down bot..._"
+    },
+    "logs": {
+      "desc": "Get bot logs",
+      "title": "*Bot Logs:*\n\n{0}",
+      "empty": "_No logs available_"
+    },
+    "backup": {
+      "desc": "Backup configuration",
+      "success": "*Configuration Backup*\n\n*Variables:* {0}\n*Date:* {1}",
+      "failed": "*Backup failed:* {0}"
+    },
+    "restore": {
+      "desc": "Restore configuration from backup",
+      "usage": "_Reply to a backup file to restore_",
+      "success": "*Configuration restored from backup*",
+      "failed": "*Restore failed:* {0}"
+    },
+    "prefix": {
+      "desc": "Change bot prefix",
+      "usage": "_Usage: .prefix <new_prefix>_\n_Example: .prefix !_",
+      "current": "Current prefix: *{0}*",
+      "success": "Prefix changed to: *{0}*",
+      "failed": "Failed to change prefix"
+    },
+    "block": {
+      "desc": "Block a user from using the bot",
+      "usage": "_Reply or mention users to block_",
+      "success": "Blocked {0}",
+      "failed": "_No users to block_"
+    },
+    "unblock": {
+      "desc": "Unblock a user",
+      "usage": "_Reply or mention users to unblock_",
+      "success": "Unblocked {0}",
+      "failed": "_No users to unblock_"
+    },
+    "blocked": {
+      "desc": "List blocked users",
+      "title": "*Blocked Users:*\n{0}",
+      "empty": "_No blocked users_"
+    },
+    "broadcast": {
+      "desc": "Broadcast message to all chats",
+      "usage": "_Usage: .broadcast <message>_",
+      "success": "Broadcast sent to {0} chats",
+      "failed": "Broadcast failed"
+    },
+    "update": {
+      "desc": "Update bot from repository",
+      "checking": "_Checking for updates..._",
+      "upToDate": "_Bot is up to date_",
+      "updating": "_Updating bot..._",
+      "success": "_Bot updated successfully_",
+      "failed": "_Update failed: {0}_"
+    },
+    "plugin": {
+      "desc": "Manage plugins",
+      "usage": "_Usage:_\n_.plugin list_ - List all plugins\n_.plugin enable <name>_ - Enable plugin\n_.plugin disable <name>_ - Disable plugin",
+      "list": "*Plugins:*\n{0}",
+      "enabled": "Plugin {0} enabled",
+      "disabled": "Plugin {0} disabled",
+      "notFound": "_Plugin {0} not found_"
+    },
+    "var": {
+      "desc": "Variable management system",
+      "usage": "Usage: .var action | ,var help",
+      "unknown": "Unknown action: {0}",
+      "set": {
+        "usage": "Usage: var set KEY=VALUE",
+        "success": "Variable {0} set to {1}",
+        "failed": "{0}"
+      },
+      "all": {
+        "empty": "No variables found"
+      },
+      "del": {
+        "usage": "Usage: var del KEY",
+        "success": "Variable {0} deleted",
+        "failed": "{0}"
+      },
+      "add": {
+        "usage": "Usage: var add KEY=VALUE",
+        "success": "Value added to {0}",
+        "failed": "Failed to add value"
+      },
+      "help": ".var set KEY=VALUE - Set variable\n.var all - Get all variables\n.var del KEY - Delete variable\n.var add KEY=VALUE - Add variable"
+    },
+    "setsudo": {
+      "desc": "Add sudo users to the bot.",
+      "noUser": "Reply to a message or mention a user to add as sudo.",
+      "added": "Added as sudo: *{0}*.",
+      "exists": "Already sudo: *{0}*."
+    },
+    "delsudo": {
+      "desc": "Remove sudo users",
+      "noUser": "Reply to a message or mention a user to remove from sudo.",
+      "removed": "Sudo removed for: {0}",
+      "notFound": "Not found in sudo: {0}"
+    },
+    "ping": {
+      "desc": "Check bot response time",
+      "pingMessage": "Ping!",
+      "pongMessage": "_Pong Response: {0}ms_"
+    },
+    "menu": {
+      "desc": "Show bot menu"
+    },
+    "join": {
+      "desc": "Make bot join a group via link",
+      "example": ".join <link>",
+      "status": "Joined group {0}"
+    },
+    "groupinfo": {
+      "desc": "Get info about a group",
+      "example": ".groupinfo",
+      "status": "Group info: {0}"
+    },
+    "edit": {
+      "desc": "Edit a message",
+      "example": ".edit <msgId> <newText>",
+      "status": "Message {0} edited"
+    },
+    "star": {
+      "desc": "Star a message",
+      "example": ".star <msgId>",
+      "status": "Message {0} starred"
+    },
+    "unstar": {
+      "desc": "Remove star from a message",
+      "example": ".unstar <msgId>",
+      "status": "Message {0} unstarred"
+    },
+    "react": {
+      "desc": "React to a message",
+      "example": ".react <emoji>",
+      "status": "Reacted with {0}"
+    },
+    "unreact": {
+      "desc": "Remove reaction from a message",
+      "example": ".unreact <emoji>",
+      "status": "Reaction {0} removed"
+    },
+    "promote": {
+      "desc": "Promote user(s) to admin",
+      "noUser": "_Reply or mention users to promote_",
+      "botNotAdmin": "_Bot is not admin_",
+      "notAllowed": "_You must be admin to promote_",
+      "alreadyAdmin": "{0}: Already admin",
+      "notMember": "{0}: Not a member",
+      "success": "{0}: Promoted",
+      "error": "{0}: {1}"
+    },
+    "demote": {
+      "desc": "Demote user(s) from admin",
+      "noUser": "_Reply or mention users to demote_",
+      "botNotAdmin": "_Bot is not admin_",
+      "notAllowed": "_You must be admin to demote_",
+      "notAdmin": "{0}: Not an admin",
+      "cantDemoteSuper": "{0}: Cannot demote superadmin",
+      "lastAdmin": "{0}: Cannot demote last admin",
+      "success": "{0}: Demoted",
+      "error": "{0}: {1}"
+    },
+    "kick": {
+      "desc": "Remove user(s) from the group",
+      "noUser": "_Reply or mention users to kick_",
+      "botNotAdmin": "_Bot is not admin_",
+      "notAllowed": "_You must be admin to kick_",
+      "notMember": "{0}: Not a member",
+      "cantKickAdmin": "{0}: Cannot kick admin",
+      "cantKickSelf": "{0}: Bot cannot kick itself",
+      "success": "{0}: Kicked",
+      "error": "{0}: {1}"
+    },
+    "add": {
+      "desc": "Add user(s) to the group",
+      "noUser": "_Reply or mention users to add_",
+      "botNotAdmin": "_Bot is not admin_",
+      "notAllowed": "_You must be admin to add_",
+      "alreadyMember": "{0}: Already a member",
+      "success": "{0}: Added",
+      "error": "{0}: {1}"
+    },
+    "open": {
+      "desc": "Open group (everyone can message)",
+      "opened": "_Group opened_",
+      "openedFor": "_Group opened for {0}_",
+      "closedAfter": "_Group closed after {0}_"
+    },
+    "close": {
+      "desc": "Close group (only admins can message)",
+      "closed": "_Group closed_",
+      "closedFor": "_Group closed for {0}_",
+      "openedAfter": "_Group opened after {0}_"
+    },
+    "disappear": {
+      "desc": "Toggle disappearing messages (on/off) [24h|7d|90d]",
+      "usage": "_Use: disappear on/off [24h|7d|90d]_",
+      "enabled": "_Disappearing messages enabled for {0}_",
+      "disabled": "_Disappearing messages disabled_"
+    },
+    "gsetting": {
+      "desc": "Group info editing permissions (admin/all)",
+      "usage": "_Use: gsetting admin/all_",
+      "updated": "_Group setting can be edited by: {0}_"
+    },
+    "accept": {
+      "desc": "Accept join requests",
+      "noUser": "_Mention users to accept or use .requests to see pending_",
+      "noUsers": "_No users specified_",
+      "success": "{0}: Accepted",
+      "error": "{0}: {1}"
+    },
+    "reject": {
+      "desc": "Reject join requests",
+      "noUser": "_Mention users to reject or use .requests to see pending_",
+      "noUsers": "_No users specified_",
+      "success": "{0}: Rejected",
+      "error": "{0}: {1}"
+    },
+    "requests": {
+      "desc": "Show pending join requests",
+      "notImplemented": "_Join requests feature not yet implemented_",
+      "failed": "_Failed to get join requests_"
+    },
+    "invite": {
+      "desc": "Get group invite link",
+      "success": "https://chat.whatsapp.com/{0}",
+      "failed": "_Failed to get invite link. Make sure bot is admin._",
+      "notAdmin": "_Im not admin_"
+    },
+    "revoke": {
+      "desc": "Revoke group invite link",
+      "success": "_Invite link revoked_",
+      "notAdmin": "_Im not an admin_"
+    },
+    "delete": {
+      "desc": "Delete a message",
+      "failed": "_Failed to delete message_"
+    },
+    "clear": {
+      "desc": "Clear all messages in chat",
+      "success": "_cleared_",
+      "failed": "_Failed to clear_"
+    },
+    "ephemeral": {
+      "desc": "Send ephemeral message [1d|7d|90d] text",
+      "usage": "_Usage: .ephemeral [1d|7d|90d] <text>_",
+      "noText": "_Provide text to send_"
+    },
+    "pin": {
+      "desc": "Pin a message",
+      "noQuoted": "_Reply to a message to pin it_",
+      "success": "_Message pinned_",
+      "failed": "_Failed to pin message_"
+    },
+    "unpin": {
+      "desc": "Unpin a message",
+      "noQuoted": "_Reply to a pinned message to unpin it_",
+      "success": "_Message unpinned_",
+      "failed": "_Failed to unpin message_"
+    },
+    "star": {
+      "desc": "Star a message",
+      "noQuoted": "_Reply to a message to star it_",
+      "success": "_Message starred_",
+      "failed": "_Failed to star message_"
+    },
+    "unstar": {
+      "desc": "Unstar a message",
+      "noQuoted": "_Reply to a starred message to unstar it_",
+      "success": "_Message unstarred_",
+      "failed": "_Failed to unstar message_"
+    },
+    "joinGroup": {
+      "desc": "Join group using invite link",
+      "noLink": "_Provide a WhatsApp group invite link_",
+      "invalidLink": "_Invalid WhatsApp group link_",
+      "success": "_Successfully joined the group_",
+      "failed": "_Failed to join group_"
+    },
+    "groupInfo": {
+      "desc": "Get group info from invite link",
+      "noLink": "_Provide a WhatsApp group invite link_",
+      "invalidLink": "_Invalid WhatsApp group link_",
+      "template": "*Group Information*\n\n*Name:* {0}\n*ID:* {1}\n*Size:* {2} members\n*Created:* {3}\n*Description:* {4}",
+      "noDesc": "No description",
+      "failed": "_Failed to get group information_"
+    },
+    "sticker": {
+      "desc": "Convert an image or video into a sticker.",
+      "reply_required": "_Reply to a media_"
+    },
+    "take": {
+      "desc": "Take a sticker and optionally set pack and author.",
+      "reply_required": "_Reply to a sticker._",
+      "example": "Usage: .take packName, authorName"
+    },
+    "exif": {
+      "desc": "Get EXIF information from a sticker.",
+      "no_data": "No EXIF data found.",
+      "info": "*STICKER INFORMATION*\n\nPack: {0}\nAuthor: {1}\nPack ID: {2}\nEmojis: {3}"
+    }
+  }
+}

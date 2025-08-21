@@ -1,0 +1,38 @@
+{
+  "name": "manjibot",
+  "version": "1.0.0",
+  "description": "A simple and scalable WhatsApp bot with ultra-clean plugin structure",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.js",
+    "dev": "nodemon start.js",
+    "direct": "node index.js",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "simple",
+    "clean"
+  ],
+  "author": "manjisama",
+  "license": "MIT",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.8",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "fluent-ffmpeg": "^2.1.3",
+    "jimp": "^0.22.12",
+    "mime-types": "^2.1.35",
+    "node-webpmux": "^3.1.7",
+    "pino": "^9.4.0",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.33.5",
+    "unzipper": "^0.12.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
